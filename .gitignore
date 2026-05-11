@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env
+results/*.json
+results/*.csv
+!results/.gitkeep
+.pixeltable/
+*.egg-info/
+dist/
+node_modules/
+.cursor/
