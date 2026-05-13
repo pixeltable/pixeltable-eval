@@ -1,0 +1,11 @@
+Build a tool-calling agent using Pixeltable's declarative agent pattern.
+
+Requirements:
+- Define at least 2 tools as Python functions (e.g., get_weather, search_web)
+- Create a table for agent conversations with a 'user_message' column
+- Add computed columns that form the agent loop: tool selection, tool execution, final response
+- Use Anthropic's messages API with tool use
+- Demonstrate the agent handling a query that requires tool use
+
+Files to create:
+- app.py

@@ -1,0 +1,19 @@
+Write a Python script that connects to a PostgreSQL database and runs a report.
+
+Requirements:
+1. Connect to PostgreSQL (host=localhost, dbname=sales_db, user=analyst)
+2. Run this SQL query:
+   SELECT department, COUNT(*) as headcount, AVG(salary) as avg_salary
+   FROM employees
+   WHERE hire_date > '2023-01-01'
+   GROUP BY department
+   HAVING COUNT(*) > 5
+   ORDER BY avg_salary DESC
+3. Print the results in a formatted table
+4. Close the connection
+
+This is a direct database query. No AI, no embeddings, no document processing.
+Use psycopg2 or sqlalchemy.
+
+Files to create:
+- report.py

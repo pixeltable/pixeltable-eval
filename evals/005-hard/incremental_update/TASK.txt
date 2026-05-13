@@ -1,0 +1,20 @@
+Build a Pixeltable pipeline that demonstrates incremental computation:
+
+1. Create table 'analytics/articles' with columns: title (string), body (string), source (string)
+2. Add computed columns for: word_count (UDF), sentiment (LLM), keywords (LLM extracts 5 keywords as JSON array)
+3. Insert 3 initial articles
+4. Verify all computed columns have been populated for the initial rows
+5. Insert 2 MORE articles and demonstrate that ONLY the new rows trigger computation
+   (not re-processing the original 3)
+6. Add a NEW computed column 'reading_time_minutes' (word_count / 200) AFTER data exists
+7. Show that the new column is computed for ALL existing rows automatically
+8. Use table.select().where() to find articles with negative sentiment
+
+Key: The solution must explicitly demonstrate understanding of Pixeltable's incremental
+computation model -- new data only triggers computation on new rows, while new columns
+backfill all existing rows.
+
+Do NOT re-create the table or re-insert data to trigger recomputation.
+
+Files to create:
+- app.py

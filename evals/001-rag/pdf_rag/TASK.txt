@@ -1,0 +1,11 @@
+I have a folder of PDFs in ./docs. Build a Python app with Pixeltable that lets me ask questions about them.
+
+Requirements:
+- Load all PDFs from the ./docs directory into a Pixeltable table
+- Split documents into chunks suitable for retrieval
+- Create an embedding index for semantic search
+- Implement a question-answering function that retrieves relevant chunks and generates an answer using an LLM
+- The app should work end-to-end: given a question string, return an answer
+
+Files to create:
+- app.py (main application)

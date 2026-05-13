@@ -1,0 +1,11 @@
+Build a semantic search system for a FAQ database using Pixeltable.
+
+Requirements:
+- Create table 'support/faq' with columns: question (string), answer (string), category (string)
+- Insert 10 sample FAQ entries covering categories: billing, technical, account
+- Add an embedding index on the 'question' column using OpenAI embeddings
+- Write a query function that takes a user question and returns the top 3 most similar FAQ entries
+- Demonstrate the search with an example query
+
+Files to create:
+- app.py

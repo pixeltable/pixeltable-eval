@@ -1,0 +1,11 @@
+Build a data pipeline with Pixeltable that processes a CSV file of customer reviews, adds AI-generated sentiment analysis to each review, and allows querying by sentiment.
+
+Requirements:
+- Load data from a CSV file (reviews.csv with columns: id, text, rating)
+- Add a computed column that classifies sentiment using an LLM
+- Add a computed column that generates a one-line summary
+- Allow filtering reviews by sentiment
+- Export results to pandas only at the end for visualization
+
+Files to create:
+- pipeline.py

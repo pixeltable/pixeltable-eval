@@ -2,57 +2,76 @@
 
 Measures how well AI coding agents write Pixeltable code under different context levels (cold, with skill, with skill + MCP).
 
+## R0 Spike Results (validated)
+
+| Context | Pass Rate | Idiomaticity (avg) | Hallucinations (avg) |
+|---------|-----------|--------------------|--------------------|
+| cold | 67% | 3.0 | 0.0 |
+| skill | **100%** | **5.0** | 0.0 |
+| skill_mcp | **100%** | **4.8** | 0.0 |
+
+**Lift (cold → skill): +33pp** — Premise validated.
+
 ## Quick Start
 
 ```bash
-# Install dependencies
 pip install -e ".[dev]"
-
-# Generate PDF fixtures
 python scripts/generate_fixtures.py
-
-# Run the R0 spike (U1: PDF RAG × Claude Code × 3 contexts × 3 reps)
-python -m eval.orchestrator --spike
+python -m eval run --spike
 ```
 
 ## How It Works
 
 ```
-Prompt → Runner (Claude Code / Cursor SDK) → Generated Code → Sandbox → Verifier → Score
+TASK.txt → Runner (Claude Code / Cursor SDK) → Generated Code → Verifier → Score
 ```
+
+**Evals** live in `evals/<category>/<name>/` (Convex-style). Each contains:
+- `TASK.txt` — the prompt sent to the agent
+- `answer/` — human-curated reference solution (optional)
+- `grader.py` — patterns for static analysis (optional, uses defaults if missing)
 
 **Runners** drive real agent runtimes — Claude Code via `--print` headless mode, Cursor via `@cursor/sdk`. These are NOT raw API calls; they include the full tool-use loop (file read/write, shell, web search, self-correction).
 
 **Environments** configure context levels: cold (no hints), skill installed (`npx skills add`), skill + MCP server.
 
-**Sandbox** creates a fresh `PIXELTABLE_HOME` per run so state never leaks.
+**Verifiers** check static patterns (positive/negative grep) and optionally run code in a sandbox for functional correctness.
 
-**Verifiers** check static patterns (positive/negative grep), run the code, and verify functional correctness.
+## Eval Categories
+
+```
+evals/
+├── 000-fundamentals/   # create_table, computed_columns, embedding_index
+├── 001-rag/            # pdf_rag, semantic_search
+├── 002-video/          # frame_extraction
+├── 003-agents/         # tool_calling
+└── 004-idioms/         # no_langchain, no_pandas_store, computed_not_loop
+```
+
+## CLI
+
+```bash
+python -m eval list                    # List all evals
+python -m eval run --spike             # R0 spike
+python -m eval run -c skill -r claude_code --reps 3
+python -m eval status                  # Show last results
+python -m eval status --failed         # Show failures only
+```
 
 ## Matrix
 
 | Axis | Values |
 |------|--------|
-| Story | U1 (PDF RAG) — more coming after R0 validates |
+| Eval | 10 evals across 5 categories |
 | Runner | Claude Code (`--print`), Cursor SDK |
 | Context | cold, +skill, +skill+MCP |
 | Reps | 3 per cell (for variance) |
-
-## Custom Runs
-
-```bash
-# Single story, single runner, specific contexts
-python -m eval.orchestrator --story u1 --runner claude_code --context cold skill --reps 3
-
-# Add Cursor SDK
-python -m eval.orchestrator --story u1 --runner cursor_sdk --context skill --reps 3
-```
 
 ## Scoring
 
 | Metric | Range | What it measures |
 |--------|-------|-----------------|
-| Pass@1 | 0/1 | Code runs AND produces correct results |
+| Pass | 0/1 | All positive patterns present, no anti-patterns |
 | Idiomaticity | 0-5 | Uses computed columns, embedding indexes, proper imports |
 | Hallucinations | int | Non-existent APIs called (lower = better) |
 | Turns | int | How many agent turns to produce code |
@@ -60,7 +79,7 @@ python -m eval.orchestrator --story u1 --runner cursor_sdk --context skill --rep
 ## Decision Gate (R0 Spike)
 
 After running the spike:
-- **Lift cold → skill ≥ 30pp**: Premise validated → build remaining 9 stories
+- **Lift cold → skill ≥ 30pp**: Premise validated → build remaining 9 stories ✓
 - **Lift 10-30pp**: Weak → re-examine SKILL.md content
 - **Lift < 10pp**: Thesis not supported → investigate
 - **Variance > 25pp**: Need more reps

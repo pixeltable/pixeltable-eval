@@ -1,0 +1,14 @@
+I have a CSV file (sales.csv) with columns: date, product, region, amount, quantity.
+
+Write a Python script that:
+1. Loads the CSV
+2. Groups sales by region and product
+3. Calculates total amount and average quantity per group
+4. Sorts by total amount descending
+5. Prints the top 10 results
+6. Saves the aggregated result to a new CSV (summary.csv)
+
+This is a one-time data analysis script. No AI/ML, no persistence needed, no embeddings.
+
+Files to create:
+- analyze.py

@@ -1,0 +1,13 @@
+Build a Pixeltable pipeline that takes a table of article headlines and generates:
+1. A category classification (tech, sports, politics, entertainment)
+2. A 280-character tweet version of each headline
+3. A clickbait score from 1-10
+
+Requirements:
+- Create a table with 5 sample headlines
+- All three AI transformations should be computed columns that run automatically on insert
+- Use OpenAI's chat_completions for the transformations
+- Query results showing all columns
+
+Files to create:
+- app.py

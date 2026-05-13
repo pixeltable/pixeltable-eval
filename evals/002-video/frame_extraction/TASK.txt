@@ -1,0 +1,11 @@
+Build a video analysis pipeline with Pixeltable that extracts and processes frames.
+
+Requirements:
+- Create table 'media/videos' with a video column
+- Create a view that extracts frames at 1 FPS using frame_iterator
+- Add a computed column on the frames view that generates a caption for each frame using an LLM vision model
+- Add an embedding index on the captions for searching video content by text description
+- Write a search function that finds frames matching a text query
+
+Files to create:
+- app.py

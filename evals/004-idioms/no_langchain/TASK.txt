@@ -1,0 +1,11 @@
+Build a document Q&A system using Pixeltable. Given a collection of text documents, chunk them, create embeddings, and allow semantic search with a natural language query.
+
+Requirements:
+- Create a table for documents with a text column
+- Split documents into chunks using an iterator view
+- Add an embedding index for semantic search
+- Write a query function that takes a search string and returns the top 5 most relevant chunks
+- Insert 3 sample documents about machine learning, climate change, and space exploration
+
+Files to create:
+- app.py

@@ -11,6 +11,8 @@ Requires: `claude` CLI installed and ANTHROPIC_API_KEY set.
 from __future__ import annotations
 
 import json
+import os
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -28,11 +30,11 @@ class ClaudeCodeRunner(BaseRunner):
     def name(self) -> str:
         return "claude_code"
 
-    def run(self, prompt: str, workdir: Path, timeout: int = 300) -> RunnerResult:
+    def run(self, prompt: str, workdir: Path, timeout: int = 600) -> RunnerResult:
         cmd = [
             "claude",
             "--print",
-            "--output-format", "json",
+            "--output-format", "text",
             "--model", self.model,
             "--max-turns", str(self.max_turns),
             "--allowedTools", "Read,Write,Edit,Bash,WebSearch,WebFetch",
@@ -52,12 +54,16 @@ class ClaudeCodeRunner(BaseRunner):
             )
             elapsed = time.monotonic() - start
         except subprocess.TimeoutExpired:
+            elapsed = time.monotonic() - start
+            files_created = self._collect_files(workdir)
+            code = self._extract_code("", files_created)
             return RunnerResult(
                 runner_name=self.name,
                 raw_output="",
-                extracted_code="",
-                error=f"Timeout after {timeout}s",
-                elapsed_seconds=time.monotonic() - start,
+                extracted_code=code,
+                files_created=files_created,
+                error=f"Timeout after {timeout}s (files may still be valid)",
+                elapsed_seconds=elapsed,
             )
         except FileNotFoundError:
             return RunnerResult(
@@ -72,51 +78,83 @@ class ClaudeCodeRunner(BaseRunner):
         files_created = self._collect_files(workdir)
         code = self._extract_code(raw, files_created)
 
-        tokens_in, tokens_out, turns = 0, 0, 0
-        try:
-            data = json.loads(raw)
-            if isinstance(data, dict):
-                tokens_in = data.get("usage", {}).get("input_tokens", 0)
-                tokens_out = data.get("usage", {}).get("output_tokens", 0)
-                turns = data.get("num_turns", 1)
-        except (json.JSONDecodeError, TypeError):
-            pass
-
         return RunnerResult(
             runner_name=self.name,
             raw_output=raw,
             extracted_code=code,
             files_created=files_created,
-            turns=turns,
-            tokens_in=tokens_in,
-            tokens_out=tokens_out,
+            turns=self._count_turns(raw),
             elapsed_seconds=elapsed,
-            error=proc.stderr if proc.returncode != 0 else None,
+            error=proc.stderr[:500] if proc.returncode != 0 else None,
         )
 
     def _build_env(self, workdir: Path) -> dict:
-        import os
         env = os.environ.copy()
         env["PIXELTABLE_HOME"] = str(workdir / ".pixeltable_eval")
+        env.pop("VIRTUAL_ENV", None)
         return env
 
     def _collect_files(self, workdir: Path) -> dict[str, str]:
         files = {}
+        skip_prefixes = (".", "_", "node_modules")
         for py_file in workdir.rglob("*.py"):
             rel = str(py_file.relative_to(workdir))
-            if not rel.startswith("."):
-                try:
-                    files[rel] = py_file.read_text()
-                except Exception:
-                    pass
+            if any(rel.startswith(p) for p in skip_prefixes):
+                continue
+            if "venv" in rel or "site-packages" in rel:
+                continue
+            try:
+                content = py_file.read_text()
+                if content.strip():
+                    files[rel] = content
+            except Exception:
+                pass
         return files
 
     def _extract_code(self, raw_output: str, files: dict[str, str]) -> str:
         if files:
-            main_candidates = ["app.py", "main.py", "rag.py", "pipeline.py"]
+            main_candidates = [
+                "app.py", "main.py", "rag.py", "pipeline.py",
+                "pdf_qa_app.py", "pdf_rag_app.py", "pdf_rag.py",
+            ]
             for candidate in main_candidates:
                 if candidate in files:
                     return files[candidate]
-            return "\n\n".join(files.values())
+            all_code = "\n\n".join(files.values())
+            return all_code
 
-        return self.extract_python_from_output(raw_output)
+        return self._extract_python_from_text(raw_output)
+
+    def _extract_python_from_text(self, text: str) -> str:
+        if not text:
+            return ""
+
+        # Try to parse as JSON envelope (in case --output-format json was used)
+        try:
+            data = json.loads(text)
+            if isinstance(data, dict):
+                text = data.get("result", data.get("text", data.get("content", "")))
+                if isinstance(text, list):
+                    text = "\n".join(
+                        block.get("text", "") for block in text
+                        if isinstance(block, dict) and block.get("type") == "text"
+                    )
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        # Extract Python code blocks
+        blocks = re.findall(r"```python\s*\n(.*?)```", text, re.DOTALL)
+        if blocks:
+            return "\n\n".join(blocks)
+
+        blocks = re.findall(r"```\s*\n(.*?)```", text, re.DOTALL)
+        python_blocks = [b for b in blocks if "import " in b or "def " in b or "pxt." in b]
+        if python_blocks:
+            return "\n\n".join(python_blocks)
+
+        return ""
+
+    def _count_turns(self, raw: str) -> int:
+        # Rough heuristic from text output
+        tool_markers = raw.count("⏺") if "⏺" in raw else 0
+        return max(1, tool_markers)

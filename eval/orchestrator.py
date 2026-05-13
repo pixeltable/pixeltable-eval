@@ -1,22 +1,22 @@
 """
 Eval orchestrator.
 
-Runs the full matrix: stories × runners × context levels × reps.
-Collects results as JSON for analysis.
+Runs the full matrix: stories x runners x context levels x reps.
+Collects results as JSON for analysis with proper statistical reporting.
 
 Usage:
-    python -m eval.orchestrator --story u1 --runner claude_code --context cold skill --reps 3
-    python -m eval.orchestrator --spike  # R0 spike: U1 × claude_code × all contexts × 3 reps
+    python -m eval.orchestrator --spike
+    python -m eval.orchestrator --story u1 --runner claude_code --context cold skill --reps 10
+    python -m eval.orchestrator --model claude-sonnet-4-20250514
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import random
 import shutil
 import tempfile
-import time
-from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -25,6 +25,16 @@ from eval.runners.base import RunnerResult
 from eval.runners.claude_code import ClaudeCodeRunner
 from eval.runners.cursor_sdk import CursorSdkRunner
 from eval.sandbox import PixeltableSandbox
+from eval.stats import (
+    ConfidenceInterval,
+    bootstrap_ci,
+    classify_infra_error,
+    cohens_h,
+    fisher_exact_test,
+    pass_at_k,
+    pass_power_k,
+    wilson_ci,
+)
 from eval.stories.u1_pdf_rag import PROMPT as U1_PROMPT, U1PdfRagVerifier
 from eval.verifier import VerificationResult
 
@@ -50,11 +60,16 @@ def run_single_cell(
     runner_name: str,
     context: ContextLevel,
     rep: int,
+    model: str | None = None,
+    run_dir: Path | None = None,
 ) -> dict:
     """Execute one cell of the eval matrix."""
 
     prompt, verifier_cls = STORIES[story_id]
-    runner = RUNNERS[runner_name]()
+    runner_kwargs = {}
+    if model:
+        runner_kwargs["model"] = model
+    runner = RUNNERS[runner_name](**runner_kwargs)
     verifier = verifier_cls()
     fixture_dir = FIXTURES.get(story_id)
 
@@ -63,8 +78,12 @@ def run_single_cell(
     try:
         setup_environment(workdir, context, fixture_dir)
 
-        print(f"  Running {runner_name} | {context.value} | rep {rep} ...")
-        runner_result: RunnerResult = runner.run(prompt, workdir, timeout=300)
+        print(f"  Running {runner_name} | {context.value} | rep {rep} ...", flush=True)
+        runner_result: RunnerResult = runner.run(prompt, workdir, timeout=600)
+
+        # Save transcript and code if run_dir provided
+        if run_dir:
+            _save_artifacts(run_dir, context, rep, runner_result)
 
         if runner_result.error and not runner_result.extracted_code:
             return _make_result(
@@ -73,9 +92,7 @@ def run_single_cell(
             )
 
         code = runner_result.extracted_code
-
-        with PixeltableSandbox(fixture_dir=fixture_dir) as sandbox:
-            verification: VerificationResult = verifier.verify(code, sandbox)
+        verification: VerificationResult = verifier.verify(code, sandbox=None)
 
         return _make_result(
             story_id, runner_name, context, rep, runner_result, verification,
@@ -83,6 +100,28 @@ def run_single_cell(
 
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
+
+
+def _save_artifacts(run_dir: Path, context: ContextLevel, rep: int, runner_result: RunnerResult):
+    """Save transcript and extracted code for manual review."""
+    transcripts_dir = run_dir / "transcripts"
+    transcripts_dir.mkdir(parents=True, exist_ok=True)
+    code_dir = run_dir / "code"
+    code_dir.mkdir(parents=True, exist_ok=True)
+
+    label = f"{context.value}_rep{rep}"
+
+    if runner_result.raw_output:
+        (transcripts_dir / f"{label}.txt").write_text(runner_result.raw_output)
+
+    if runner_result.extracted_code:
+        (code_dir / f"{label}.py").write_text(runner_result.extracted_code)
+
+    if runner_result.files_created:
+        files_dir = code_dir / label
+        files_dir.mkdir(exist_ok=True)
+        for fname, content in runner_result.files_created.items():
+            (files_dir / fname).write_text(content)
 
 
 def _make_result(
@@ -107,10 +146,17 @@ def _make_result(
         "files_created": list(runner_result.files_created.keys()),
     }
 
+    err = error or runner_result.error
+    is_infra = classify_infra_error(err)
+    result["is_infra_error"] = is_infra
+
     if verification:
         result.update({
             "pass": verification.passed,
+            "score": verification.score,
+            "static_score": verification.static_score,
             "static_pass": verification.static_pass,
+            "llm_score": verification.llm_score,
             "functional_pass": verification.functional_pass,
             "idiomaticity": verification.idiomaticity,
             "hallucination_count": verification.hallucination_count,
@@ -118,118 +164,232 @@ def _make_result(
             "positive_hits": verification.positive_hits,
             "negative_hits": verification.negative_hits,
             "functional_details": verification.functional_details,
+            "llm_details": verification.llm_details,
         })
         if verification.sandbox_result:
             result["sandbox_exit_code"] = verification.sandbox_result.exit_code
             result["sandbox_stderr"] = verification.sandbox_result.stderr[:500]
     else:
-        result.update({"pass": False, "error": error or "unknown"})
+        result.update({"pass": False, "score": 0.0, "error": err or "unknown"})
 
     return result
 
 
-def run_spike():
-    """R0 spike: U1 × claude_code × {cold, skill, skill_mcp} × 3 reps."""
+def run_spike(model: str | None = None, reps: int = 10):
+    """R0 spike: U1 x claude_code x {cold, skill, skill_mcp} x N reps (randomized order)."""
     contexts = [ContextLevel.COLD, ContextLevel.WITH_SKILL, ContextLevel.WITH_MCP]
-    reps = 3
     results = []
 
-    print("=" * 60)
-    print("R0 SPIKE: U1 (PDF RAG) × Claude Code × 3 contexts × 3 reps")
-    print("=" * 60)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir = RESULTS_DIR / f"spike_{ts}"
+    run_dir.mkdir(parents=True, exist_ok=True)
 
-    for context in contexts:
-        print(f"\n--- Context: {context.value} ---")
-        for rep in range(1, reps + 1):
-            result = run_single_cell("u1", "claude_code", context, rep)
-            results.append(result)
-            status = "PASS" if result.get("pass") else "FAIL"
-            idiom = result.get("idiomaticity", 0)
-            print(f"  Rep {rep}: {status} | idiomaticity={idiom:.1f} | "
-                  f"hallucinations={result.get('hallucination_count', '?')}")
+    print("=" * 60, flush=True)
+    print(f"SPIKE: U1 (PDF RAG) x Claude Code x 3 contexts x {reps} reps")
+    print(f"Model: {model or 'default'}")
+    print("=" * 60, flush=True)
 
-    save_results(results, "spike")
+    # Randomize trial order to prevent systematic bias
+    trials = [(ctx, rep) for ctx in contexts for rep in range(1, reps + 1)]
+    random.shuffle(trials)
+
+    for i, (context, rep) in enumerate(trials, 1):
+        print(f"\n[{i}/{len(trials)}] ", end="", flush=True)
+        result = run_single_cell("u1", "claude_code", context, rep, model=model, run_dir=run_dir)
+        results.append(result)
+        status = "PASS" if result.get("pass") else "FAIL"
+        infra = " [INFRA]" if result.get("is_infra_error") else ""
+        idiom = result.get("idiomaticity", 0)
+        print(f"  => {status}{infra} | idiom={idiom:.1f} | "
+              f"halluc={result.get('hallucination_count', '?')}", flush=True)
+
+    save_results(results, run_dir / "results.json")
     print_summary(results)
     return results
 
 
-def run_matrix(stories: list[str], runners: list[str], contexts: list[str], reps: int):
-    """Run arbitrary subset of the eval matrix."""
+def run_matrix(
+    stories: list[str],
+    runners: list[str],
+    contexts: list[str],
+    reps: int,
+    model: str | None = None,
+):
+    """Run arbitrary subset of the eval matrix with randomized trial order."""
     results = []
     context_levels = [ContextLevel(c) for c in contexts]
 
-    for story_id in stories:
-        for runner_name in runners:
-            for context in context_levels:
-                for rep in range(1, reps + 1):
-                    result = run_single_cell(story_id, runner_name, context, rep)
-                    results.append(result)
-                    status = "PASS" if result.get("pass") else "FAIL"
-                    print(f"  {story_id}/{runner_name}/{context.value}/rep{rep}: {status}")
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir = RESULTS_DIR / f"matrix_{ts}"
+    run_dir.mkdir(parents=True, exist_ok=True)
 
-    save_results(results, f"matrix_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+    # Build and randomize trial list
+    trials = [
+        (sid, rname, ctx, rep)
+        for sid in stories
+        for rname in runners
+        for ctx in context_levels
+        for rep in range(1, reps + 1)
+    ]
+    random.shuffle(trials)
+
+    for i, (story_id, runner_name, context, rep) in enumerate(trials, 1):
+        print(f"[{i}/{len(trials)}] ", end="", flush=True)
+        result = run_single_cell(story_id, runner_name, context, rep, model=model, run_dir=run_dir)
+        results.append(result)
+        status = "PASS" if result.get("pass") else "FAIL"
+        infra = " [INFRA]" if result.get("is_infra_error") else ""
+        print(f"  => {status}{infra}", flush=True)
+
+    save_results(results, run_dir / "results.json")
     print_summary(results)
     return results
 
 
-def save_results(results: list[dict], name: str):
-    RESULTS_DIR.mkdir(exist_ok=True)
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    path = RESULTS_DIR / f"{name}_{ts}.json"
+def save_results(results: list[dict], path: Path):
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(results, indent=2, default=str))
-    print(f"\nResults saved to {path}")
+    print(f"\nResults saved to {path}", flush=True)
 
 
 def print_summary(results: list[dict]):
-    print("\n" + "=" * 60)
-    print("SUMMARY")
-    print("=" * 60)
+    """Print summary with confidence intervals, pass^k, and saturation warnings."""
+    print("\n" + "=" * 70, flush=True)
+    print("SUMMARY (with 95% Wilson confidence intervals)")
+    print("=" * 70, flush=True)
 
     by_context: dict[str, list[dict]] = {}
     for r in results:
         ctx = r.get("context_level", "?")
         by_context.setdefault(ctx, []).append(r)
 
-    print(f"\n{'Context':<15} {'Pass Rate':>10} {'Idiom (avg)':>12} {'Halluc (avg)':>13}")
-    print("-" * 52)
+    # Separate infra errors
+    print("\n--- Infrastructure Errors (excluded from capability metrics) ---")
+    total_infra = sum(1 for r in results if r.get("is_infra_error"))
+    if total_infra:
+        for r in results:
+            if r.get("is_infra_error"):
+                print(f"  {r['context_level']}/rep{r['rep']}: {r.get('error', '?')[:80]}")
+        print(f"  Total: {total_infra}/{len(results)} trials affected")
+    else:
+        print("  None detected.")
+
+    # Capability metrics (excluding infra errors)
+    print(f"\n--- Capability Metrics (infra errors excluded) ---")
+    header = f"{'Context':<12} {'Pass Rate':<22} {'Idiom':<18} {'Halluc':>8} {'n':>4}"
+    print(header)
+    print("-" * len(header))
+
+    context_stats: dict[str, dict] = {}
 
     for ctx in ["cold", "skill", "skill_mcp"]:
         runs = by_context.get(ctx, [])
         if not runs:
             continue
-        pass_rate = sum(1 for r in runs if r.get("pass")) / len(runs) * 100
-        avg_idiom = sum(r.get("idiomaticity", 0) for r in runs) / len(runs)
-        avg_halluc = sum(r.get("hallucination_count", 0) for r in runs) / len(runs)
-        print(f"{ctx:<15} {pass_rate:>9.0f}% {avg_idiom:>11.1f} {avg_halluc:>12.1f}")
 
-    cold_pass = [r.get("pass") for r in by_context.get("cold", [])]
-    skill_pass = [r.get("pass") for r in by_context.get("skill", [])]
-    if cold_pass and skill_pass:
-        cold_rate = sum(1 for p in cold_pass if p) / len(cold_pass) * 100
-        skill_rate = sum(1 for p in skill_pass if p) / len(skill_pass) * 100
-        lift = skill_rate - cold_rate
-        print(f"\nLift (cold → skill): {lift:+.0f}pp")
-        if lift >= 30:
-            print("✓ DECISION: Premise validated. Build remaining 9 stories.")
-        elif lift >= 10:
-            print("⚠ DECISION: Weak lift. Re-examine SKILL.md content before expanding.")
+        # Exclude infra errors for capability assessment
+        valid = [r for r in runs if not r.get("is_infra_error")]
+        if not valid:
+            print(f"{ctx:<12} {'(all infra errors)':<22}")
+            continue
+
+        n = len(valid)
+        successes = sum(1 for r in valid if r.get("pass"))
+        ci = wilson_ci(successes, n)
+
+        idiom_values = [r.get("idiomaticity", 0) for r in valid if r.get("pass") is not None]
+        idiom_ci = bootstrap_ci(idiom_values) if idiom_values else None
+
+        avg_halluc = sum(r.get("hallucination_count", 0) for r in valid) / n
+
+        pass_str = f"{ci.point*100:.0f}% [{ci.lower*100:.0f}-{ci.upper*100:.0f}%]"
+        idiom_str = f"{idiom_ci.point:.1f} [{idiom_ci.lower:.1f}-{idiom_ci.upper:.1f}]" if idiom_ci else "N/A"
+        print(f"{ctx:<12} {pass_str:<22} {idiom_str:<18} {avg_halluc:>7.1f} {n:>4}")
+
+        context_stats[ctx] = {
+            "n": n,
+            "successes": successes,
+            "ci": ci,
+            "idiom_ci": idiom_ci,
+            "pass_rate": successes / n if n else 0,
+        }
+
+    # Consistency metrics
+    print(f"\n--- Consistency (pass^k) ---")
+    for ctx, stats in context_stats.items():
+        rate = stats["pass_rate"]
+        k = stats["n"]
+        pk = pass_power_k(rate, min(k, 5))
+        print(f"  {ctx}: pass^{min(k,5)} = {pk:.3f} (all {min(k,5)} consecutive trials pass)")
+
+    # Lift analysis with statistical tests
+    if "cold" in context_stats and "skill" in context_stats:
+        cold_s = context_stats["cold"]
+        skill_s = context_stats["skill"]
+
+        print(f"\n--- Lift Analysis (cold -> skill) ---")
+        lift = (skill_s["pass_rate"] - cold_s["pass_rate"]) * 100
+        print(f"  Raw lift: {lift:+.0f}pp")
+
+        # CI overlap check
+        if cold_s["ci"].overlaps(skill_s["ci"]):
+            print(f"  WARNING: Confidence intervals overlap -- lift is NOT statistically significant")
+            print(f"    Cold CI:  {cold_s['ci']}")
+            print(f"    Skill CI: {skill_s['ci']}")
         else:
-            print("✗ DECISION: Skill thesis not supported. Investigate why.")
+            print(f"  Confidence intervals do NOT overlap -- lift appears significant")
+
+        # Fisher exact test
+        cold_fail = cold_s["n"] - cold_s["successes"]
+        skill_fail = skill_s["n"] - skill_s["successes"]
+        p_val = fisher_exact_test(
+            skill_s["successes"], skill_fail,
+            cold_s["successes"], cold_fail,
+        )
+        print(f"  Fisher exact p-value: {p_val:.4f} {'(significant)' if p_val < 0.05 else '(NOT significant)'}")
+
+        # Effect size
+        h = cohens_h(skill_s["pass_rate"], cold_s["pass_rate"])
+        size = "small" if abs(h) < 0.5 else "medium" if abs(h) < 0.8 else "large"
+        print(f"  Cohen's h effect size: {h:.3f} ({size})")
+
+        # Directional signal (replaces deterministic DECISION gate)
+        print(f"\n--- Interpretation ---")
+        if p_val < 0.05 and not cold_s["ci"].overlaps(skill_s["ci"]):
+            print("  SIGNAL: Statistically significant lift detected.")
+        elif lift > 0 and cold_s["pass_rate"] < 0.9:
+            print("  SIGNAL: Positive directional trend, but insufficient power to confirm.")
+            total_n = cold_s["n"] + skill_s["n"]
+            print(f"  Recommendation: Increase reps. Current total n={total_n}.")
+        elif cold_s["pass_rate"] >= 0.9:
+            print("  SATURATION WARNING: Cold baseline >= 90% pass rate.")
+            print("  The model likely has Pixeltable in its training data.")
+            print("  Consider: (a) harder tasks, (b) different model, (c) reframe as variance-reduction measurement.")
+        else:
+            print("  NO SIGNAL: Cannot detect meaningful lift from this data.")
+
+    # Saturation check
+    saturated = [ctx for ctx, s in context_stats.items() if s["pass_rate"] == 1.0 and s["n"] >= 5]
+    if saturated:
+        print(f"\n  SATURATION: Contexts at 100%: {', '.join(saturated)}")
+        print("  These provide regression signal but no room for improvement measurement.")
+        print("  Add harder tasks to restore capability-eval utility.")
 
 
 def main():
     parser = argparse.ArgumentParser(description="Pixeltable eval harness")
-    parser.add_argument("--spike", action="store_true", help="Run R0 spike (U1 × claude_code × 3 contexts × 3 reps)")
+    parser.add_argument("--spike", action="store_true", help="Run spike (U1 x claude_code x 3 contexts)")
     parser.add_argument("--story", nargs="+", choices=list(STORIES.keys()), default=["u1"])
     parser.add_argument("--runner", nargs="+", choices=list(RUNNERS.keys()), default=["claude_code"])
     parser.add_argument("--context", nargs="+", choices=["cold", "skill", "skill_mcp"], default=["cold", "skill"])
-    parser.add_argument("--reps", type=int, default=3)
+    parser.add_argument("--reps", type=int, default=10, help="Repetitions per cell (default: 10)")
+    parser.add_argument("--model", type=str, default=None, help="Model to use (e.g., claude-sonnet-4-20250514)")
     args = parser.parse_args()
 
     if args.spike:
-        run_spike()
+        run_spike(model=args.model, reps=args.reps)
     else:
-        run_matrix(args.story, args.runner, args.context, args.reps)
+        run_matrix(args.story, args.runner, args.context, args.reps, model=args.model)
 
 
 if __name__ == "__main__":

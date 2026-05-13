@@ -1,0 +1,13 @@
+Write a Python script that converts all .json files in a directory to .yaml format.
+
+Requirements:
+1. Read all .json files from an input directory (./input/)
+2. Parse each JSON file
+3. Convert to YAML format
+4. Write the .yaml files to an output directory (./output/)
+5. Print a summary of files converted
+
+This is a simple file format conversion utility. No AI needed, no persistence, no search.
+
+Files to create:
+- convert.py

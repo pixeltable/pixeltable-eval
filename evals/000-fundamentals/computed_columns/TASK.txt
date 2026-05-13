@@ -1,0 +1,12 @@
+Build a Pixeltable pipeline that processes movie reviews.
+
+Requirements:
+- Create table 'movies/reviews' with columns: title (string), review_text (string), rating (int)
+- Insert 5 sample movie reviews
+- Add a computed column 'sentiment' that uses OpenAI to classify the review as positive/negative/neutral
+- Add a computed column 'summary' that generates a one-sentence summary of the review
+- Add a computed column 'word_count' using a UDF that counts words in review_text
+- Query to show all columns for reviews with rating >= 4
+
+Files to create:
+- app.py

@@ -1,0 +1,12 @@
+Build a research paper search engine using Pixeltable.
+
+Requirements:
+- Create table 'research/papers' with columns: title (string), abstract (string), authors (string), year (int)
+- Insert 5 sample research paper entries about AI/ML topics
+- Add an embedding index on the 'abstract' column
+- Write a search function that finds papers by semantic similarity to a query
+- Add a computed column that generates 3 keywords from each abstract using an LLM
+- Demonstrate searching for "transformer attention mechanisms"
+
+Files to create:
+- app.py

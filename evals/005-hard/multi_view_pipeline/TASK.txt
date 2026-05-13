@@ -1,0 +1,18 @@
+Build a multi-stage document processing pipeline with Pixeltable that involves:
+
+1. A base table 'legal/contracts' storing PDF contracts (doc column)
+2. A chunks view using document_splitter with token_limit=400 and overlap=50
+3. A second view 'legal/clauses' that filters chunks containing the word "liability" or "indemnification"
+4. An embedding index on the clauses view's text column
+5. A computed column on the clauses view that classifies clause type (limitation, indemnification, warranty) using an LLM
+6. A computed column that assigns a risk_score (1-10) based on the clause classification
+7. A @pxt.query function that takes a question and returns the top 3 highest-risk clauses similar to the query
+
+Key requirements:
+- Use if_exists='ignore' on ALL table/view/index creation
+- The pipeline must handle re-runs gracefully (idempotent)
+- Demonstrate inserting 2 sample PDFs and querying for "what are the liability limits"
+- The risk_score column must reference the clause_type column (column dependency chain)
+
+Files to create:
+- pipeline.py

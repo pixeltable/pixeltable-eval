@@ -1,0 +1,19 @@
+Build a robust Pixeltable application that handles various error conditions gracefully.
+
+Requirements:
+1. Create table 'resilient/items' with columns: url (string), content (string, nullable)
+2. Add a computed column 'fetched' that uses a @pxt.udf to fetch content from the URL
+   - The UDF must handle network errors (return None on failure, not crash)
+   - The UDF must have proper type annotations including Optional return
+3. Add a computed column 'summary' that uses an LLM to summarize 'fetched'
+   - This column must handle None values from the previous column gracefully
+4. Insert 5 URLs (mix of valid and invalid ones like "http://nonexistent.invalid/page")
+5. Query results showing which URLs succeeded and which returned None
+6. Demonstrate using .where() to filter only successfully fetched rows
+7. Show how to use table.revert() after a problematic insert
+
+The solution must NOT use try/except around the entire pipeline.
+Error handling must be per-row via the UDF's return type.
+
+Files to create:
+- app.py

@@ -1,0 +1,11 @@
+Create a Pixeltable table to store product listings for an e-commerce site.
+
+Requirements:
+- Create a directory namespace called 'shop'
+- Create a table 'shop/products' with columns: name (string), price (float), description (string), image (image), in_stock (bool)
+- Insert 3 sample products with realistic data (images can be URLs)
+- Query to show all products priced under $50
+- Add a computed column that generates a marketing tagline using OpenAI
+
+Files to create:
+- app.py
