@@ -129,7 +129,7 @@ def main():
 
     run_parser = subparsers.add_parser("run", help="Run evals")
     run_parser.add_argument("--spike", action="store_true", help="R0 spike")
-    run_parser.add_argument("-c", "--context", nargs="+", choices=["cold", "skill", "skill_mcp"])
+    run_parser.add_argument("-c", "--context", nargs="+", choices=["cold", "skill", "skill_mcp", "plugin"])
     run_parser.add_argument("-r", "--runner", nargs="+", choices=["claude_code", "cursor_sdk"])
     run_parser.add_argument("-s", "--story", nargs="+")
     run_parser.add_argument("-f", "--filter", help="Regex filter on eval names")
