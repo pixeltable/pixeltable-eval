@@ -70,6 +70,8 @@ IDIOMATICITY_SIGNALS = [
     (r"uvx\s+pixeltable-new|pixeltable.new", "uses pixeltable-new scaffolder"),
     (r"\[tool\.pixeltable\.serve\]", "configures pxt serve in pyproject.toml"),
     (r"pxt\s+serve\b", "uses pxt serve for API deployment"),
+    (r"--template\s+(multimodal-rag|video-intel|agent|audio-intel|content-pipeline|data-lab)",
+     "uses application template"),
 ]
 
 # Weights for composite scoring

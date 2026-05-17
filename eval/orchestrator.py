@@ -38,6 +38,7 @@ from eval.stats import (
 from eval.stories.u1_pdf_rag import PROMPT as U1_PROMPT, U1PdfRagVerifier
 from eval.stories.u2_scaffolding import PROMPT as U2_PROMPT, U2ScaffoldingVerifier
 from eval.stories.u3_pxt_serve import PROMPT as U3_PROMPT, U3PxtServeVerifier
+from eval.stories.u4_template_scaffolding import PROMPT as U4_PROMPT, U4TemplateScaffoldingVerifier
 from eval.verifier import VerificationResult
 
 
@@ -50,6 +51,7 @@ STORIES = {
     "u1": (U1_PROMPT, U1PdfRagVerifier),
     "u2": (U2_PROMPT, U2ScaffoldingVerifier),
     "u3": (U3_PROMPT, U3PxtServeVerifier),
+    "u4": (U4_PROMPT, U4TemplateScaffoldingVerifier),
 }
 
 FIXTURES = {
