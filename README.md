@@ -33,7 +33,7 @@ TASK.txt → Runner (Claude Code / Cursor SDK) → Generated Code → Verifier �
 
 **Runners** drive real agent runtimes — Claude Code via `--print` headless mode, Cursor via `@cursor/sdk`. These are NOT raw API calls; they include the full tool-use loop (file read/write, shell, web search, self-correction).
 
-**Environments** configure context levels: cold (no hints), skill installed (`npx skills add`), skill + MCP server.
+**Environments** configure context levels: cold (no hints), skill installed (`npx skills add`), skill + MCP server, plugin (Claude Code marketplace install).
 
 **Verifiers** check static patterns (positive/negative grep) and optionally run code in a sandbox for functional correctness.
 
@@ -45,7 +45,10 @@ evals/
 ├── 001-rag/            # pdf_rag, semantic_search
 ├── 002-video/          # frame_extraction
 ├── 003-agents/         # tool_calling
-└── 004-idioms/         # no_langchain, no_pandas_store, computed_not_loop
+├── 004-idioms/         # no_langchain, no_pandas_store, computed_not_loop
+├── 005-hard/           # error_recovery, incremental_update, multi_view_pipeline
+├── 006-negative-controls/  # raw_sql_query, simple_pandas_groupby, static_file_transform
+└── 007-scaffolding/    # use_scaffolder (pixeltable-new), pxt_serve
 ```
 
 ## CLI
@@ -62,17 +65,25 @@ python -m eval status --failed         # Show failures only
 
 | Axis | Values |
 |------|--------|
-| Eval | 10 evals across 5 categories |
+| Eval | 15+ evals across 8 categories |
 | Runner | Claude Code (`--print`), Cursor SDK |
-| Context | cold, +skill, +skill+MCP |
+| Context | cold, +skill, +skill+MCP, +plugin |
 | Reps | 3 per cell (for variance) |
+
+## Stories (Orchestrator)
+
+| Story | Description |
+|-------|-------------|
+| u1 | PDF RAG pipeline (base table + chunk view + embedding + LLM) |
+| u2 | Project scaffolding with `uvx pixeltable-new` |
+| u3 | `pxt serve` configuration (pyproject.toml + @pxt.query) |
 
 ## Scoring
 
 | Metric | Range | What it measures |
 |--------|-------|-----------------|
 | Pass | 0/1 | All positive patterns present, no anti-patterns |
-| Idiomaticity | 0-5 | Uses computed columns, embedding indexes, proper imports |
+| Idiomaticity | 0-5 | Uses computed columns, embedding indexes, scaffolder, pxt serve |
 | Hallucinations | int | Non-existent APIs called (lower = better) |
 | Turns | int | How many agent turns to produce code |
 

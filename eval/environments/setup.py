@@ -17,6 +17,7 @@ class ContextLevel(str, Enum):
     COLD = "cold"
     WITH_SKILL = "skill"
     WITH_MCP = "skill_mcp"
+    WITH_PLUGIN = "plugin"
 
 
 def setup_environment(workdir: Path, context: ContextLevel, fixture_dir: Path | None = None):
@@ -36,6 +37,8 @@ def setup_environment(workdir: Path, context: ContextLevel, fixture_dir: Path | 
         _setup_with_skill(workdir)
     elif context == ContextLevel.WITH_MCP:
         _setup_with_skill_and_mcp(workdir)
+    elif context == ContextLevel.WITH_PLUGIN:
+        _setup_with_plugin(workdir)
 
 
 def _setup_cold(workdir: Path):
@@ -79,6 +82,63 @@ def _setup_with_skill_and_mcp(workdir: Path):
     cursor_dir = workdir / ".cursor"
     cursor_dir.mkdir(exist_ok=True)
     (cursor_dir / "mcp.json").write_text(json.dumps(mcp_config, indent=2))
+
+
+def _setup_with_plugin(workdir: Path):
+    """Install the pixeltable-skill via Claude Code marketplace plugin.
+
+    This simulates the install path: /plugin marketplace add pixeltable/pixeltable-skill
+    Since we can't drive Claude Code's plugin system programmatically, we clone
+    the plugin repo and set up the .claude-plugin structure that Claude Code
+    would create after marketplace install.
+    """
+    plugin_dir = workdir / ".claude-plugin"
+    plugin_dir.mkdir(exist_ok=True)
+
+    try:
+        subprocess.run(
+            [
+                "git", "clone", "--depth", "1",
+                "https://github.com/pixeltable/pixeltable-skill.git",
+                str(workdir / ".pixeltable-skill-src"),
+            ],
+            capture_output=True,
+            timeout=30,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        _setup_with_skill(workdir)
+        return
+
+    src = workdir / ".pixeltable-skill-src"
+    if not src.exists():
+        _setup_with_skill(workdir)
+        return
+
+    skill_md = src / "skills" / "pixeltable-skill" / "SKILL.md"
+    marketplace_json = src / ".claude-plugin" / "marketplace.json"
+
+    if marketplace_json.exists():
+        shutil.copy2(marketplace_json, plugin_dir / "marketplace.json")
+
+    if skill_md.exists():
+        skills_dir = workdir / "skills" / "pixeltable-skill"
+        skills_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(skill_md, skills_dir / "SKILL.md")
+
+    agents_md = workdir / "AGENTS.md"
+    if not agents_md.exists() and skill_md.exists():
+        content = (
+            "# AGENTS.md\n\n"
+            "This project uses Pixeltable.\n\n"
+            "## Installed Plugins\n\n"
+            "- pixeltable-skill (via Claude Code marketplace)\n\n"
+            f"Skill location: {skills_dir / 'SKILL.md'}\n"
+        )
+        agents_md.write_text(content)
+
+    shutil.rmtree(src, ignore_errors=True)
+
+    _setup_with_skill_and_mcp(workdir)
 
 
 def _setup_skill_manual(workdir: Path):

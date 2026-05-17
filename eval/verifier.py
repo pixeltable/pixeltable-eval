@@ -52,6 +52,8 @@ HALLUCINATED_APIS = [
     (r"pxt\.connect\b", "pxt.connect (does not exist)"),
     (r"\.similarity\(\s*['\"]", ".similarity() positional string (use string= kwarg)"),
     (r"from pixeltable\s+import\s+Table\b", "from pixeltable import Table (wrong)"),
+    (r"modules\s*=\s*\[", "modules field in pyproject.toml (deprecated, does not exist)"),
+    (r"query\s*=\s*['\"][\w.]+\.[\w.]+['\"]", "dot notation for serve query (use colon: module:func)"),
 ]
 
 IDIOMATICITY_SIGNALS = [
@@ -65,6 +67,9 @@ IDIOMATICITY_SIGNALS = [
     (r"pxt\.create_dir\s*\(", "creates directory namespace"),
     (r"@pxt\.(udf|query)\b", "defines UDF or query function"),
     (r"\.choices\[0\]\.message\.content", "extracts OpenAI response correctly"),
+    (r"uvx\s+pixeltable-new|pixeltable.new", "uses pixeltable-new scaffolder"),
+    (r"\[tool\.pixeltable\.serve\]", "configures pxt serve in pyproject.toml"),
+    (r"pxt\s+serve\b", "uses pxt serve for API deployment"),
 ]
 
 # Weights for composite scoring

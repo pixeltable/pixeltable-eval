@@ -36,6 +36,8 @@ from eval.stats import (
     wilson_ci,
 )
 from eval.stories.u1_pdf_rag import PROMPT as U1_PROMPT, U1PdfRagVerifier
+from eval.stories.u2_scaffolding import PROMPT as U2_PROMPT, U2ScaffoldingVerifier
+from eval.stories.u3_pxt_serve import PROMPT as U3_PROMPT, U3PxtServeVerifier
 from eval.verifier import VerificationResult
 
 
@@ -46,6 +48,8 @@ RUNNERS = {
 
 STORIES = {
     "u1": (U1_PROMPT, U1PdfRagVerifier),
+    "u2": (U2_PROMPT, U2ScaffoldingVerifier),
+    "u3": (U3_PROMPT, U3PxtServeVerifier),
 }
 
 FIXTURES = {
@@ -282,7 +286,7 @@ def print_summary(results: list[dict]):
 
     context_stats: dict[str, dict] = {}
 
-    for ctx in ["cold", "skill", "skill_mcp"]:
+    for ctx in ["cold", "skill", "skill_mcp", "plugin"]:
         runs = by_context.get(ctx, [])
         if not runs:
             continue
@@ -379,9 +383,9 @@ def print_summary(results: list[dict]):
 def main():
     parser = argparse.ArgumentParser(description="Pixeltable eval harness")
     parser.add_argument("--spike", action="store_true", help="Run spike (U1 x claude_code x 3 contexts)")
-    parser.add_argument("--story", nargs="+", choices=list(STORIES.keys()), default=["u1"])
+    parser.add_argument("--story", nargs="+", choices=list(STORIES.keys()), default=list(STORIES.keys()))
     parser.add_argument("--runner", nargs="+", choices=list(RUNNERS.keys()), default=["claude_code"])
-    parser.add_argument("--context", nargs="+", choices=["cold", "skill", "skill_mcp"], default=["cold", "skill"])
+    parser.add_argument("--context", nargs="+", choices=["cold", "skill", "skill_mcp", "plugin"], default=["cold", "skill"])
     parser.add_argument("--reps", type=int, default=10, help="Repetitions per cell (default: 10)")
     parser.add_argument("--model", type=str, default=None, help="Model to use (e.g., claude-sonnet-4-20250514)")
     args = parser.parse_args()
