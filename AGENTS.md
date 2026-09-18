@@ -16,6 +16,9 @@ This repo is an eval harness that measures how well AI coding agents write Pixel
 - `evals/` — Convex-style eval definitions (TASK.txt + grader.py per eval)
 - `fixtures/` — Test data (PDFs, audio, video) for stories
 - `results/` — JSON output from runs (git-ignored)
+- `stress-test-project/` — Hand-maintained suite of 17 Pixeltable apps exercising the
+  current API surface (TableModel + FastAPIRouter + `pxt service`); see its README
+  for verified behaviors and platform findings
 
 ## Context Levels
 
