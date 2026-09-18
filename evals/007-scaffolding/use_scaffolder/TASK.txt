@@ -1,14 +1,12 @@
 I want to start a new Pixeltable project that provides a REST API for semantic search over documents.
 
 Requirements:
-- Use `uvx pixeltable-new` to scaffold the project (do NOT build from scratch)
-- Choose the "backend" pattern (it includes a FastAPI serving layer)
+- Scaffold the project with `uvx pixeltable-new` or `pxt init` + `pxt service example` (do NOT create the project structure by hand)
 - The project name should be "doc-search"
-- After scaffolding, install dependencies with `uv sync`
-- Create a schema.py that defines a documents table with: path (pxt.Document), a chunks view with document_splitter, an embedding index on the chunks, and a @pxt.query function for semantic search
-- Configure pyproject.toml [tool.pixeltable.serve] to expose the query as a REST endpoint
-- Show the commands to initialize the schema and start the server
+- Install dependencies with `uv sync`
+- Edit the generated app.py so it defines a documents table (TableModel) with: a path column (pxt.Document), a chunks view built with document_splitter, an embedding index declared on the model (__indexes__), and a @pxt.query function for semantic search exposed via a FastAPIRouter query route
+- Show the commands to create the tables and start the service
 
 Files to create:
-- schema.py (the Pixeltable pipeline definition)
-- The project should be scaffolded via pixeltable-new, not manually created
+- app.py (the Pixeltable TableModel + routes definition)
+- The project must be scaffolded via an official path, not manually created

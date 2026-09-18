@@ -37,7 +37,7 @@ from eval.stats import (
 )
 from eval.stories.u1_pdf_rag import PROMPT as U1_PROMPT, U1PdfRagVerifier
 from eval.stories.u2_scaffolding import PROMPT as U2_PROMPT, U2ScaffoldingVerifier
-from eval.stories.u3_pxt_serve import PROMPT as U3_PROMPT, U3PxtServeVerifier
+from eval.stories.u3_service import PROMPT as U3_PROMPT, U3ServiceVerifier
 from eval.verifier import VerificationResult
 
 
@@ -49,7 +49,7 @@ RUNNERS = {
 STORIES = {
     "u1": (U1_PROMPT, U1PdfRagVerifier),
     "u2": (U2_PROMPT, U2ScaffoldingVerifier),
-    "u3": (U3_PROMPT, U3PxtServeVerifier),
+    "u3": (U3_PROMPT, U3ServiceVerifier),
 }
 
 FIXTURES = {
@@ -96,7 +96,19 @@ def run_single_cell(
             )
 
         code = runner_result.extracted_code
-        verification: VerificationResult = verifier.verify(code, sandbox=None)
+        # Non-Python files (pyproject.toml, README, run scripts) are evidence
+        # for static analysis but must not be executed.
+        extra_evidence = "\n\n".join(
+            content
+            for name, content in runner_result.files_created.items()
+            if not name.endswith(".py")
+        )
+        verification: VerificationResult = verifier.verify(
+            code,
+            sandbox=None,
+            transcript=runner_result.raw_output,
+            extra_evidence=extra_evidence,
+        )
 
         return _make_result(
             story_id, runner_name, context, rep, runner_result, verification,

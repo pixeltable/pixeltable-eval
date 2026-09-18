@@ -137,20 +137,25 @@ class CursorSdkRunner(BaseRunner):
 
     def _collect_files(self, workdir: Path) -> dict[str, str]:
         files = {}
-        for py_file in workdir.rglob("*.py"):
-            rel = str(py_file.relative_to(workdir))
+        collect_exts = {".py", ".toml", ".md", ".txt", ".sh"}
+        for f in workdir.rglob("*"):
+            rel = str(f.relative_to(workdir))
+            if not f.is_file() or f.suffix not in collect_exts:
+                continue
             if not rel.startswith(".") and not rel.startswith("_cursor"):
                 try:
-                    files[rel] = py_file.read_text()
+                    files[rel] = f.read_text()
                 except Exception:
                     pass
         return files
 
     def _extract_code(self, raw_output: str, files: dict[str, str]) -> str:
-        if files:
+        # Only Python counts as extracted code (see claude_code runner).
+        py_files = {name: c for name, c in files.items() if name.endswith(".py")}
+        if py_files:
             main_candidates = ["app.py", "main.py", "rag.py", "pipeline.py"]
             for candidate in main_candidates:
-                if candidate in files:
-                    return files[candidate]
-            return "\n\n".join(files.values())
+                if candidate in py_files:
+                    return py_files[candidate]
+            return "\n\n".join(py_files.values())
         return self.extract_python_from_output(raw_output)

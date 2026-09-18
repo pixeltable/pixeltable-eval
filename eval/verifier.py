@@ -46,14 +46,18 @@ class VerificationResult:
 
 HALLUCINATED_APIS = [
     (r"openai\.vision\b", "openai.vision (does not exist)"),
-    (r"from pixeltable\.iterators\s+import\s+FrameIterator", "FrameIterator (deprecated import)"),
+    (r"from pixeltable\.iterators\s+import", "pixeltable.iterators (deprecated shim, use pixeltable.functions.*)"),
     (r"pxt\.Table\s*\(", "pxt.Table() (does not exist)"),
     (r"pxt\.load_table\b", "pxt.load_table (does not exist)"),
     (r"pxt\.connect\b", "pxt.connect (does not exist)"),
     (r"\.similarity\(\s*['\"]", ".similarity() positional string (use string= kwarg)"),
     (r"from pixeltable\s+import\s+Table\b", "from pixeltable import Table (wrong)"),
-    (r"modules\s*=\s*\[", "modules field in pyproject.toml (deprecated, does not exist)"),
-    (r"query\s*=\s*['\"][\w.]+\.[\w.]+['\"]", "dot notation for serve query (use colon: module:func)"),
+    (r"pxt\.Required\s*\[", "pxt.Required (does not exist; optional is T | None)"),
+    (r"\bpxt\s+serve\b", "pxt serve (retired CLI; use pxt schema update + pxt service update)"),
+    (r"\bpxt\s+service\s+run\b", "pxt service run (does not exist; use pxt service update)"),
+    (r"\[+\s*tool\.pixeltable\.(serve|service)", "[tool.pixeltable.serve/service] TOML (does not exist)"),
+    (r"\[\[\s*service\s*\]\]|\[\[\s*service\.routes\s*\]\]", "[[service]] TOML routes (retired; use FastAPIRouter)"),
+    (r"uvx\s+pixeltable-new[^\n]*--(backend|serving|batch)\b", "pixeltable-new --backend/--serving/--batch (removed flags)"),
 ]
 
 IDIOMATICITY_SIGNALS = [
@@ -67,9 +71,14 @@ IDIOMATICITY_SIGNALS = [
     (r"pxt\.create_dir\s*\(", "creates directory namespace"),
     (r"@pxt\.(udf|query)\b", "defines UDF or query function"),
     (r"\.choices\[0\]\.message\.content", "extracts OpenAI response correctly"),
-    (r"uvx\s+pixeltable-new|pixeltable.new", "uses pixeltable-new scaffolder"),
-    (r"\[tool\.pixeltable\.serve\]", "configures pxt serve in pyproject.toml"),
-    (r"pxt\s+serve\b", "uses pxt serve for API deployment"),
+    (r"uvx\s+pixeltable-new|pxt\s+init\b", "scaffolds or initializes a project"),
+    (r"TableModel|model_base\s*\(", "declares TableModel classes"),
+    (r"__indexes__\s*=", "declares indexes on the model"),
+    (r"FastAPIRouter|pixeltable\.serving", "uses FastAPIRouter for serving"),
+    (r"add_(insert|update|delete|compute|query)_route\b", "declares serving routes"),
+    (r"pxt\s+schema\s+update", "applies schema with pxt schema update"),
+    (r"pxt\s+service\s+update", "starts the service with pxt service update"),
+    (r"return_rows\s*=\s*True", "uses insert(return_rows=True)"),
 ]
 
 # Weights for composite scoring
@@ -78,6 +87,24 @@ LLM_WEIGHT = 0.50
 FUNCTIONAL_WEIGHT = 0.20
 
 PASS_THRESHOLD = 3.0  # Score >= 3.0/5.0 counts as "pass"
+
+
+_COMMAND_BLOCK = re.compile(r"```(?:bash|sh|shell|console|zsh)\s*\n(.*?)```", re.DOTALL)
+
+
+def command_evidence(transcript: str) -> str:
+    """Pull executed/shown commands out of an agent transcript.
+
+    Returns fenced bash/shell blocks plus tool-call lines (``⏺ ...`` in
+    Claude Code text output). Prose is excluded so negative patterns only
+    fire on things the agent actually ran or wrote down as commands, not
+    on words it used to describe them.
+    """
+    if not transcript:
+        return ""
+    chunks = _COMMAND_BLOCK.findall(transcript)
+    chunks += [ln for ln in transcript.splitlines() if ln.lstrip().startswith("⏺")]
+    return "\n".join(chunks)
 
 
 class StoryVerifier(ABC):
@@ -109,13 +136,22 @@ class StoryVerifier(ABC):
         code: str,
         sandbox: PixeltableSandbox | None = None,
         llm_judge_result: dict | None = None,
+        transcript: str = "",
+        extra_evidence: str = "",
     ) -> VerificationResult:
         """Verify generated code with composite scoring.
 
         Args:
-            code: Generated Python code
+            code: Generated code (also executed when a sandbox is given)
             sandbox: Optional sandbox for functional execution
             llm_judge_result: Optional dict from LLMJudge.grade() with score fields
+            transcript: Optional raw agent output. Commands it contains
+                (tool calls, bash blocks) count as actions taken; the rest is
+                only used as positive evidence, so describing an anti-pattern
+                does not trigger it.
+            extra_evidence: Optional contents of other files the agent
+                created (configs, docs, scripts). Scored like code but never
+                executed.
         """
         if not code or not code.strip():
             return VerificationResult(
@@ -132,21 +168,30 @@ class StoryVerifier(ABC):
             )
 
         # --- Layer 1: Static analysis ---
+        # Two evidence channels:
+        # - actions: created files plus commands the agent ran or wrote down.
+        #   Negative patterns, hallucinations, and idiom signals apply here so
+        #   they only fire on things the agent actually did.
+        # - evidence: actions plus the full transcript. Positive patterns apply
+        #   here so mentioning a required tool or command counts as evidence.
+        actions = code + "\n" + extra_evidence + "\n" + command_evidence(transcript)
+        evidence = actions + "\n" + transcript
+
         positive_hits = {
-            desc: bool(re.search(pattern, code, re.MULTILINE))
+            desc: bool(re.search(pattern, evidence, re.MULTILINE))
             for pattern, desc in self.positive_patterns
         }
         negative_hits = {
-            desc: bool(re.search(pattern, code, re.MULTILINE))
+            desc: bool(re.search(pattern, actions, re.MULTILINE))
             for pattern, desc in self.negative_patterns
         }
         hallucinations = [
             desc for pattern, desc in HALLUCINATED_APIS
-            if re.search(pattern, code, re.MULTILINE)
+            if re.search(pattern, actions, re.MULTILINE)
         ]
         idiom_count = sum(
             1 for pattern, _ in IDIOMATICITY_SIGNALS
-            if re.search(pattern, code, re.MULTILINE)
+            if re.search(pattern, actions, re.MULTILINE)
         )
         idiomaticity = min(5.0, idiom_count * 5.0 / len(IDIOMATICITY_SIGNALS))
 

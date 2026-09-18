@@ -97,14 +97,17 @@ class ClaudeCodeRunner(BaseRunner):
     def _collect_files(self, workdir: Path) -> dict[str, str]:
         files = {}
         skip_prefixes = (".", "_", "node_modules")
-        for py_file in workdir.rglob("*.py"):
-            rel = str(py_file.relative_to(workdir))
+        collect_exts = {".py", ".toml", ".md", ".txt", ".sh"}
+        for f in workdir.rglob("*"):
+            rel = str(f.relative_to(workdir))
+            if not f.is_file() or f.suffix not in collect_exts:
+                continue
             if any(rel.startswith(p) for p in skip_prefixes):
                 continue
             if "venv" in rel or "site-packages" in rel:
                 continue
             try:
-                content = py_file.read_text()
+                content = f.read_text()
                 if content.strip():
                     files[rel] = content
             except Exception:
@@ -112,16 +115,19 @@ class ClaudeCodeRunner(BaseRunner):
         return files
 
     def _extract_code(self, raw_output: str, files: dict[str, str]) -> str:
-        if files:
+        # Only Python counts as extracted code: it is executed by the sandbox
+        # and concatenating TOML/shell/markdown would corrupt it. Other files
+        # still reach the verifier via files_created -> extra_evidence.
+        py_files = {name: c for name, c in files.items() if name.endswith(".py")}
+        if py_files:
             main_candidates = [
                 "app.py", "main.py", "rag.py", "pipeline.py",
                 "pdf_qa_app.py", "pdf_rag_app.py", "pdf_rag.py",
             ]
             for candidate in main_candidates:
-                if candidate in files:
-                    return files[candidate]
-            all_code = "\n\n".join(files.values())
-            return all_code
+                if candidate in py_files:
+                    return py_files[candidate]
+            return "\n\n".join(py_files.values())
 
         return self._extract_python_from_text(raw_output)
 
