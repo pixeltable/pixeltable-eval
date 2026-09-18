@@ -17,7 +17,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from eval.runners.base import BaseRunner, RunnerResult
+from eval.runners.base import BaseRunner, RunnerResult, collect_created_files
 
 
 class ClaudeCodeRunner(BaseRunner):
@@ -55,7 +55,7 @@ class ClaudeCodeRunner(BaseRunner):
             elapsed = time.monotonic() - start
         except subprocess.TimeoutExpired:
             elapsed = time.monotonic() - start
-            files_created = self._collect_files(workdir)
+            files_created = collect_created_files(workdir)
             code = self._extract_code("", files_created)
             return RunnerResult(
                 runner_name=self.name,
@@ -75,7 +75,7 @@ class ClaudeCodeRunner(BaseRunner):
             )
 
         raw = proc.stdout
-        files_created = self._collect_files(workdir)
+        files_created = collect_created_files(workdir)
         code = self._extract_code(raw, files_created)
 
         return RunnerResult(
@@ -93,26 +93,6 @@ class ClaudeCodeRunner(BaseRunner):
         env["PIXELTABLE_HOME"] = str(workdir / ".pixeltable_eval")
         env.pop("VIRTUAL_ENV", None)
         return env
-
-    def _collect_files(self, workdir: Path) -> dict[str, str]:
-        files = {}
-        skip_prefixes = (".", "_", "node_modules")
-        collect_exts = {".py", ".toml", ".md", ".txt", ".sh"}
-        for f in workdir.rglob("*"):
-            rel = str(f.relative_to(workdir))
-            if not f.is_file() or f.suffix not in collect_exts:
-                continue
-            if any(rel.startswith(p) for p in skip_prefixes):
-                continue
-            if "venv" in rel or "site-packages" in rel:
-                continue
-            try:
-                content = f.read_text()
-                if content.strip():
-                    files[rel] = content
-            except Exception:
-                pass
-        return files
 
     def _extract_code(self, raw_output: str, files: dict[str, str]) -> str:
         # Only Python counts as extracted code: it is executed by the sandbox

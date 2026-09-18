@@ -18,19 +18,15 @@ class Reviews(TableModel, name='reviews'):
     sentiment = chat_completions(
         messages=[{
             'role': 'user',
-            'content': review_text.apply(  # noqa: F821  # TableModel resolves column names in class body
-                lambda x: f'Classify this movie review as positive, negative, or neutral. '
-                f'Reply with exactly one word.\n\nReview: {x}'
-            ),
+            'content': 'Classify this movie review as positive, negative, or neutral. '
+                'Reply with exactly one word.\n\nReview: ' + review_text,  # noqa: F821
         }],
         model='gpt-4o-mini',
     ).choices[0].message.content
     summary = chat_completions(
         messages=[{
             'role': 'user',
-            'content': review_text.apply(  # noqa: F821  # TableModel resolves column names in class body
-                lambda x: f'Summarize this movie review in one sentence:\n\n{x}'
-            ),
+            'content': 'Summarize this movie review in one sentence:\n\n' + review_text,  # noqa: F821
         }],
         model='gpt-4o-mini',
     ).choices[0].message.content

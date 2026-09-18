@@ -89,21 +89,59 @@ FUNCTIONAL_WEIGHT = 0.20
 PASS_THRESHOLD = 3.0  # Score >= 3.0/5.0 counts as "pass"
 
 
-_COMMAND_BLOCK = re.compile(r"```(?:bash|sh|shell|console|zsh)\s*\n(.*?)```", re.DOTALL)
+_SHELL_TAGS = {"bash", "sh", "shell", "console", "zsh", "terminal", "shellsession"}
+_SNIFF_TAGS = {"", "text", "txt", "plaintext"}
+_SHELL_LINE = re.compile(
+    r"^\s*[$>⏺]?\s*"
+    r"(?:pxt|uvx|uv|pip3?|python3?|pytest|npm|npx|node|git|curl|wget|cd|mkdir"
+    r"|export|source|docker|brew)\b"
+)
+_PYTHON_LINE = re.compile(
+    r"^\s*(?:import\s+\w|from\s+\w+\s+import|def\s|class\s|@|print\s*\(|return\s)"
+)
+
+
+def _looks_like_shell(block: str) -> bool:
+    """Heuristic: an untagged fenced block is command evidence if it has at
+    least one command-looking line and no Python-looking line."""
+    lines = [ln for ln in block.splitlines() if ln.strip()]
+    return (
+        bool(lines)
+        and any(_SHELL_LINE.match(ln) for ln in lines)
+        and not any(_PYTHON_LINE.match(ln) for ln in lines)
+    )
 
 
 def command_evidence(transcript: str) -> str:
     """Pull executed/shown commands out of an agent transcript.
 
-    Returns fenced bash/shell blocks plus tool-call lines (``⏺ ...`` in
-    Claude Code text output). Prose is excluded so negative patterns only
-    fire on things the agent actually ran or wrote down as commands, not
-    on words it used to describe them.
+    Returns fenced shell blocks (bash/sh/console/…, plus untagged or
+    text-tagged blocks that look like commands) and tool-call lines
+    (``⏺ ...`` in Claude Code text output). Prose is excluded so negative
+    patterns only fire on things the agent actually ran or wrote down as
+    commands, not on words it used to describe them.
     """
     if not transcript:
         return ""
-    chunks = _COMMAND_BLOCK.findall(transcript)
-    chunks += [ln for ln in transcript.splitlines() if ln.lstrip().startswith("⏺")]
+    chunks: list[str] = []
+    in_block = False
+    tag = ""
+    buf: list[str] = []
+    for ln in transcript.splitlines():
+        if not in_block:
+            m = re.match(r"^```(\w*)\s*$", ln)
+            if m:
+                in_block, tag, buf = True, m.group(1).lower(), []
+            elif ln.lstrip().startswith("⏺"):
+                chunks.append(ln)
+            continue
+        if ln.strip().startswith("```"):
+            in_block = False
+            body = "\n".join(buf)
+            if tag in _SHELL_TAGS or (tag in _SNIFF_TAGS and _looks_like_shell(body)):
+                chunks.append(body)
+        else:
+            buf.append(ln)
     return "\n".join(chunks)
 
 
@@ -153,7 +191,17 @@ class StoryVerifier(ABC):
                 created (configs, docs, scripts). Scored like code but never
                 executed.
         """
-        if not code or not code.strip():
+        # --- Layer 1: Static analysis ---
+        # Two evidence channels:
+        # - actions: created files plus commands the agent ran or wrote down.
+        #   Negative patterns, hallucinations, and idiom signals apply here so
+        #   they only fire on things the agent actually did.
+        # - evidence: actions plus the full transcript. Positive patterns apply
+        #   here so mentioning a required tool or command counts as evidence.
+        actions = code + "\n" + extra_evidence + "\n" + command_evidence(transcript)
+        evidence = actions + "\n" + transcript
+
+        if not actions.strip():
             return VerificationResult(
                 story_id=self.story_id,
                 score=0.0,
@@ -164,18 +212,8 @@ class StoryVerifier(ABC):
                 functional_pass=None,
                 idiomaticity=0.0,
                 hallucination_count=0,
-                functional_details={"error": "no code extracted"},
+                functional_details={"error": "no code or file/command evidence extracted"},
             )
-
-        # --- Layer 1: Static analysis ---
-        # Two evidence channels:
-        # - actions: created files plus commands the agent ran or wrote down.
-        #   Negative patterns, hallucinations, and idiom signals apply here so
-        #   they only fire on things the agent actually did.
-        # - evidence: actions plus the full transcript. Positive patterns apply
-        #   here so mentioning a required tool or command counts as evidence.
-        actions = code + "\n" + extra_evidence + "\n" + command_evidence(transcript)
-        evidence = actions + "\n" + transcript
 
         positive_hits = {
             desc: bool(re.search(pattern, evidence, re.MULTILINE))

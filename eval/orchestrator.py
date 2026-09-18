@@ -137,7 +137,9 @@ def _save_artifacts(run_dir: Path, context: ContextLevel, rep: int, runner_resul
         files_dir = code_dir / label
         files_dir.mkdir(exist_ok=True)
         for fname, content in runner_result.files_created.items():
-            (files_dir / fname).write_text(content)
+            dest = files_dir / fname
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(content)
 
 
 def _make_result(

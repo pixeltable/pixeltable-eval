@@ -25,6 +25,36 @@ class RunnerResult:
     error: str | None = None
 
 
+COLLECT_EXTS = {".py", ".toml", ".md", ".txt", ".sh"}
+SKIP_DIRS = {"node_modules", "site-packages", "__pycache__", "dist", "build"}
+
+
+def collect_created_files(workdir: Path) -> dict[str, str]:
+    """Collect agent-created text files that count as grading evidence.
+
+    Anything under a hidden dir, a ``_``-prefixed dir, or a dependency/build
+    dir is skipped: those are harness or vendored files, not agent output.
+    Only Python files end up in ``extracted_code``; the rest still reach the
+    verifier through ``files_created`` -> ``extra_evidence``.
+    """
+    files = {}
+    for f in workdir.rglob("*"):
+        if not f.is_file() or f.suffix not in COLLECT_EXTS:
+            continue
+        rel = f.relative_to(workdir)
+        if rel.parts[0].startswith((".", "_")):
+            continue
+        if any(p in SKIP_DIRS or "venv" in p for p in rel.parts):
+            continue
+        try:
+            content = f.read_text()
+        except Exception:
+            continue
+        if content.strip():
+            files[str(rel)] = content
+    return files
+
+
 class BaseRunner(ABC):
     """Interface for driving an AI coding agent."""
 
