@@ -1,5 +1,4 @@
 import pixeltable as pxt
-import pixeltable.functions as pxtf
 from pixeltable.serving import FastAPIRouter
 
 TableModel = pxt.model_base()

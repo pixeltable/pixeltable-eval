@@ -18,7 +18,7 @@ class Articles(TableModel, name='articles'):
 
 @pxt.query
 def search_articles(text: str, n: int):
-    sim = Articles.body.similarity(text)
+    sim = Articles.body.similarity(string=text)
     return (
         Articles
         .where(sim > 0.4)

@@ -192,6 +192,22 @@ Verified live: 4 frames from `num_frames=4`; 3 segments from `duration=30,overla
 - **Services don't pick up env changes after start**: set `OPENAI_API_KEY`, restart daemon, then `pxt service restart` is still required. Persisted fix: `[openai] api_key` in `~/.pixeltable/config.toml`.
 - **`recompute --errors-only` prints "N rows, 0 computed values"** while actually clearing the error cells; the count phrasing is confusing.
 - **`txt` -> `document_splitter('paragraph')` produced 1 chunk for a 3-paragraph file** (txt has no structure); the downstream `string_splitter('sentence')` still emitted 3 rows. Nested iterator views did not deadlock (PXT-1373 not reproduced).
+- **Insert routes drop request fields not listed in `inputs`** (insert-route twin of PXT-1402): a required column omitted from `inputs` is dropped from the parsed body, so the route can never succeed - `MISSING_REQUIRED` on every call. `doc` app's `/reports` (missing `report_date`) and `/contracts` (missing `contract_type`) were dead this way; fixed by listing all required columns. Rule: `inputs` must cover every required non-computed column.
+- **`document_splitter(separators='paragraph')` does not support PDF** - insert fails atomically with `UNSUPPORTED_OPERATION` (no base row, no error cells, whole insert rolls back). For PDF use `'page'`, `'token_limit'`, or `'char_limit'` (the latter two need `limit=`). `.md`/`.txt` paragraph splitting works.
+- **Changing a route's `inputs` is destructive**: `pxt service update` reports "route will be replaced: inputs changed [destructive]" and requires `--allow-destructive`.
+
+## Round 3 (2026-09-18): full live pass, all 17 apps
+
+All 17 apps deployed into one catalog and every route exercised over HTTP with
+generated media (TTS audio via `say`, ffmpeg video, PIL images, .md/.txt/PDF docs).
+Zero error cells across all 38 tables/views afterward.
+
+- `openai.transcriptions` on TTS `.m4a` and on `extract_audio` of an `.mp4`: accurate transcripts; downstream `chat_completions` sentiment/summary/topics/chapters all returned.
+- Vision columns read generated images correctly (identified drawn headphones, read a fake settings UI incl. toggle states, described map tiles).
+- Iterators: `frame_iterator(num_frames=4)` -> 4 rows+captions; `audio_splitter(30,5)` on 71s audio -> 3 segments+transcripts+gists; `tile_iterator(512)` on 1600x1200 -> 12 tiles+notes; `document_splitter('paragraph')` -> 5 chunks (.md) / 1 chunk (.txt); nested `string_splitter('sentence')` -> 6 rows.
+- `EmbeddingIndex` + `.similarity()` routes ranked correctly (headphones 0.48 > boots 0.23; billing 0.68 > shipping 0.21); `where(sim > 0.4)` filtered weak matches out of `/articles/search`.
+- `@pxt.uda` p90 + `group_by` GET route; JSON `keys/len/get/contains/map/sort`; `BtreeIndex` + insert/update/delete/compute routes; multipart `uploadfile_inputs` + 256px JPEG `FileResponse`.
+- `batch_update` quirk: updating only *some* of a computed column's dependencies nullifies it (computed cols evaluate against the update row, not merged with stored values). Routes that list all dependency columns in `inputs` (as crud does) are unaffected.
 
 ## Cloud round 2 (2026-09-18)
 
