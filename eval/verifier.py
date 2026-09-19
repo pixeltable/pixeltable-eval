@@ -185,21 +185,19 @@ class StoryVerifier(ABC):
             llm_judge_result: Optional dict from LLMJudge.grade() with score fields
             transcript: Optional raw agent output. Commands it contains
                 (tool calls, bash blocks) count as actions taken; the rest is
-                only used as positive evidence, so describing an anti-pattern
-                does not trigger it.
+                ignored, so describing an API or an anti-pattern earns no
+                credit and triggers no penalty.
             extra_evidence: Optional contents of other files the agent
                 created (configs, docs, scripts). Scored like code but never
                 executed.
         """
         # --- Layer 1: Static analysis ---
-        # Two evidence channels:
-        # - actions: created files plus commands the agent ran or wrote down.
-        #   Negative patterns, hallucinations, and idiom signals apply here so
-        #   they only fire on things the agent actually did.
-        # - evidence: actions plus the full transcript. Positive patterns apply
-        #   here so mentioning a required tool or command counts as evidence.
+        # Actions: created files plus commands the agent ran or wrote down.
+        # Both positive and negative patterns apply here so credit requires an
+        # artifact (code, file, or command), not a prose claim in the
+        # transcript; an agent that only describes the required APIs scores
+        # nothing for them.
         actions = code + "\n" + extra_evidence + "\n" + command_evidence(transcript)
-        evidence = actions + "\n" + transcript
 
         if not actions.strip():
             return VerificationResult(
@@ -216,7 +214,7 @@ class StoryVerifier(ABC):
             )
 
         positive_hits = {
-            desc: bool(re.search(pattern, evidence, re.MULTILINE))
+            desc: bool(re.search(pattern, actions, re.MULTILINE))
             for pattern, desc in self.positive_patterns
         }
         negative_hits = {
@@ -257,12 +255,14 @@ class StoryVerifier(ABC):
         functional: dict = {"pass": None, "skipped": True}
         functional_score = 0.0
 
+        functional_score: float | None = None
         if sandbox:
             sandbox_result = sandbox.exec_code(code)
             if sandbox_result.success:
                 try:
                     functional = self.functional_check(sandbox)
-                    functional_score = 5.0 if functional.get("pass") else 2.0
+                    if not functional.get("skipped"):
+                        functional_score = 5.0 if functional.get("pass") else 2.0
                 except Exception as e:
                     functional = {"pass": False, "error": str(e)}
                     functional_score = 1.0
@@ -278,7 +278,7 @@ class StoryVerifier(ABC):
         functional_pass = functional.get("pass")
 
         # --- Composite score ---
-        if llm_score is not None and sandbox:
+        if llm_score is not None and functional_score is not None:
             # All three layers available
             score = (
                 STATIC_WEIGHT * static_score +
@@ -286,11 +286,11 @@ class StoryVerifier(ABC):
                 FUNCTIONAL_WEIGHT * functional_score
             )
         elif llm_score is not None:
-            # Static + LLM (no sandbox)
+            # Static + LLM (no sandbox, or functional check skipped)
             adjusted_static_w = STATIC_WEIGHT / (STATIC_WEIGHT + LLM_WEIGHT)
             adjusted_llm_w = LLM_WEIGHT / (STATIC_WEIGHT + LLM_WEIGHT)
             score = adjusted_static_w * static_score + adjusted_llm_w * llm_score
-        elif sandbox:
+        elif functional_score is not None:
             # Static + functional (no LLM)
             adjusted_static_w = STATIC_WEIGHT / (STATIC_WEIGHT + FUNCTIONAL_WEIGHT)
             adjusted_func_w = FUNCTIONAL_WEIGHT / (STATIC_WEIGHT + FUNCTIONAL_WEIGHT)

@@ -7,7 +7,7 @@ applied and served with the pxt CLI.
 """
 
 POSITIVE_PATTERNS = [
-    (r"uvx\s+pixeltable-new|pxt\s+init\b|pxt\s+(service|schema)\s+example",
+    (r"uvx\s+pixeltable-new|pxt\s+(service|schema)\s+example",
      "scaffolds via pixeltable-new or pxt init/example"),
     (r"uv\s+sync", "installs dependencies with uv sync"),
     (r"TableModel|model_base\s*\(", "defines TableModel classes"),

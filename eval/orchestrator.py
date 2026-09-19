@@ -96,19 +96,26 @@ def run_single_cell(
             )
 
         code = runner_result.extracted_code
-        # Non-Python files (pyproject.toml, README, run scripts) are evidence
-        # for static analysis but must not be executed.
-        extra_evidence = "\n\n".join(
-            content
-            for name, content in runner_result.files_created.items()
-            if not name.endswith(".py")
-        )
-        verification: VerificationResult = verifier.verify(
-            code,
-            sandbox=None,
-            transcript=runner_result.raw_output,
-            extra_evidence=extra_evidence,
-        )
+        # All created files are evidence for static analysis. The sandbox only
+        # ever executes ``code`` (the extracted entry point), so non-Python
+        # files here are safe to include.
+        extra_evidence = "\n\n".join(runner_result.files_created.values())
+
+        with PixeltableSandbox(fixture_dir=fixture_dir) as sandbox:
+            # Mirror the agent's files into the sandbox so multi-file projects
+            # resolve imports and pxt commands find the real layout.
+            for name, content in runner_result.files_created.items():
+                dest = (sandbox.workdir / name).resolve()
+                if not dest.is_relative_to(sandbox.workdir.resolve()):
+                    continue
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_text(content)
+            verification: VerificationResult = verifier.verify(
+                code,
+                sandbox=sandbox,
+                transcript=runner_result.raw_output,
+                extra_evidence=extra_evidence,
+            )
 
         return _make_result(
             story_id, runner_name, context, rep, runner_result, verification,
@@ -137,7 +144,9 @@ def _save_artifacts(run_dir: Path, context: ContextLevel, rep: int, runner_resul
         files_dir = code_dir / label
         files_dir.mkdir(exist_ok=True)
         for fname, content in runner_result.files_created.items():
-            dest = files_dir / fname
+            dest = (files_dir / fname).resolve()
+            if not dest.is_relative_to(files_dir.resolve()):
+                continue
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(content)
 
