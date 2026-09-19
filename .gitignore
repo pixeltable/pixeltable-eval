@@ -1,9 +1,10 @@
 __pycache__/
 *.pyc
 .env
-results/*.json
-results/*.csv
+results/*
 !results/.gitkeep
+.venv/
+.DS_Store
 .pixeltable/
 *.egg-info/
 dist/

@@ -12,6 +12,16 @@ Measures how well AI coding agents write Pixeltable code under different context
 
 **Lift (cold → skill): +33pp** — Premise validated.
 
+### Harness verification (2026-09)
+
+The full pipeline was exercised end-to-end with a fixture runner (no agent CLI):
+env setup, file collection, sandbox execution, functional checks, scoring, and
+`results.json` output. All three orchestrator stories pass against reference
+implementations (u1: real PDF inserts, chunk view, embeddings; u3: real
+`pxt init` + `pxt schema update` materializing computed columns). Functional
+grading requires the harness interpreter to carry `openai` — it is now a
+declared dependency. Live agent-matrix runs need `claude` CLI auth.
+
 ## Quick Start
 
 ```bash
