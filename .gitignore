@@ -4,6 +4,7 @@ __pycache__/
 results/*
 !results/.gitkeep
 .venv/
+.DS_Store
 .pixeltable/
 *.egg-info/
 dist/
