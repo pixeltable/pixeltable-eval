@@ -119,6 +119,12 @@ class PixeltableSandbox:
         result = self.exec_verification(verification)
         return result.stdout.strip() if result.success else result.stderr
 
+    @staticmethod
+    def _last_stdout_line(result: SandboxResult) -> str:
+        """Last non-empty stdout line — pxt prints a connection banner first."""
+        lines = [ln for ln in result.stdout.splitlines() if ln.strip()]
+        return lines[-1] if lines else ""
+
     def list_tables(self) -> list[str]:
         """List all tables in the sandbox Pixeltable instance."""
         code = textwrap.dedent("""\
@@ -130,7 +136,7 @@ class PixeltableSandbox:
         result = self.exec_verification(code)
         if result.success and result.stdout.strip():
             try:
-                return json.loads(result.stdout.strip())
+                return json.loads(self._last_stdout_line(result))
             except json.JSONDecodeError:
                 return []
         return []

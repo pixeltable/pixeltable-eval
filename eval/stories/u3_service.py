@@ -130,8 +130,10 @@ except Exception as e:
             return {"pass": False, "reason": f"verification failed: {result.stderr}"}
 
         try:
-            data = json.loads(result.stdout.strip())
-        except (json.JSONDecodeError, ValueError):
+            # pxt prints a connection banner to stdout; the JSON payload is
+            # always the last line.
+            data = json.loads(result.stdout.strip().splitlines()[-1])
+        except (json.JSONDecodeError, ValueError, IndexError):
             return {"pass": False, "reason": f"bad output: {result.stdout}"}
 
         if "error" in data:
