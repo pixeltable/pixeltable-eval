@@ -12,6 +12,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import textwrap
 from dataclasses import dataclass, field
@@ -58,7 +59,7 @@ class PixeltableSandbox:
 
         try:
             proc = subprocess.run(
-                ["python3", str(script)],
+                [sys.executable, str(script)],
                 cwd=str(self.workdir),
                 env=env,
                 capture_output=True,

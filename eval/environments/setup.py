@@ -50,13 +50,24 @@ def _setup_with_skill(workdir: Path):
     """Install the pixeltable-skill via npx skills."""
     try:
         subprocess.run(
-            ["npx", "-y", "skills", "add", "pixeltable/pixeltable-skill"],
+            ["npx", "-y", "skills", "add", "pixeltable/pixeltable-skill", "--agent", "*", "-y"],
             cwd=str(workdir),
             capture_output=True,
             text=True,
             timeout=60,
+            check=False,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError):
+        _setup_skill_manual(workdir)
+        return
+
+    # `skills add` exits 0 even when it installs nothing (e.g. cancelled
+    # prompt), so verify the payload actually landed before trusting it.
+    installed = any(
+        (workdir / d).exists()
+        for d in (".agents/skills", ".claude/skills", ".cursor/skills", "skills")
+    )
+    if not installed:
         _setup_skill_manual(workdir)
 
 
