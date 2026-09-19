@@ -1,6 +1,6 @@
 import pixeltable as pxt
 import pixeltable.functions as pxtf
-from pixeltable.functions.openai import chat_completions, embeddings, invoke_tools
+from pixeltable.functions.openai import chat_completions, embeddings
 from pixeltable.serving import FastAPIRouter
 
 TableModel = pxt.model_base()
@@ -18,7 +18,7 @@ class KB(TableModel, name='kb'):
 @pxt.query
 def kb_lookup(text: str):
     """Look up knowledge-base entries relevant to `text`."""
-    sim = KB.content.similarity(text)
+    sim = KB.content.similarity(string=text)
     return KB.order_by(sim, asc=False).select(KB.topic, KB.content, score=sim).limit(3)
 
 

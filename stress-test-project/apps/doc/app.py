@@ -101,7 +101,7 @@ report_router = FastAPIRouter(name='reports')
 report_router.add_insert_route(
     Reports,
     path='/reports',
-    inputs=[Reports.report_name, Reports.report_document, Reports.department],
+    inputs=[Reports.report_name, Reports.report_document, Reports.department, Reports.report_date],
     outputs=[Reports.id]
 )
 
@@ -109,6 +109,6 @@ contract_router = FastAPIRouter(name='contracts')
 contract_router.add_insert_route(
     Contracts,
     path='/contracts',
-    inputs=[Contracts.contract_name, Contracts.contract_document, Contracts.parties],
+    inputs=[Contracts.contract_name, Contracts.contract_document, Contracts.parties, Contracts.contract_type],
     outputs=[Contracts.id]
 )
