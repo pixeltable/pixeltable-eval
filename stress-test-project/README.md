@@ -74,8 +74,10 @@ The apps write content-part dicts in alphabetical key order for that reason.
 ```bash
 brew install pixeltable/tap/pxt
 
-# AI columns need openai in the Homebrew virtualenv
-/opt/homebrew/Cellar/pxt/0.7.8/libexec/bin/python -m pip install openai
+# AI columns need openai in the Homebrew virtualenv; doc/txt splitting needs
+# spacy + mistune + the en_core_web_sm model
+/opt/homebrew/Cellar/pxt/0.7.8/libexec/bin/python -m pip install openai spacy mistune
+/opt/homebrew/Cellar/pxt/0.7.8/libexec/bin/python -m spacy download en_core_web_sm
 
 # Credentials for chat/transcription/embeddings columns (required at insert time)
 export OPENAI_API_KEY='your-api-key'
@@ -221,7 +223,13 @@ Zero error cells across all 38 tables/views afterward.
 Cloud gotchas hit:
 - `requirements.txt` must include `pixeltable==<version>` itself: the image
   build treats it as the full dep set; without it pods crash with
-  `ModuleNotFoundError: No module named 'pixeltable'`.
+  `ModuleNotFoundError: No module named 'pixeltable'`. Same for the spaCy
+  model: `string_splitter('sentence')`/`document_splitter` load
+  `en_core_web_sm` lazily at first split (schema/view creation succeeds
+  without it; inserts then fail), and `spacy download` cannot run in the
+  image build - pin the model wheel as a direct reference
+  (`en-core-web-sm @ https://github.com/explosion/spacy-models/releases/...`),
+  version-matched to the installed `spacy` (3.8.x model for spacy 3.8.x).
 - f-strings in computed columns bake column *names*, not values. Use
   `pxtf.string.format('... {} ...', col)` for prompts (verified via a cloud
   response echoing real row values).
