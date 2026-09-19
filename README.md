@@ -48,7 +48,7 @@ evals/
 ├── 004-idioms/         # no_langchain, no_pandas_store, computed_not_loop
 ├── 005-hard/           # error_recovery, incremental_update, multi_view_pipeline
 ├── 006-negative-controls/  # raw_sql_query, simple_pandas_groupby, static_file_transform
-└── 007-scaffolding/    # use_scaffolder (pixeltable-new), pxt_serve
+└── 007-scaffolding/    # use_scaffolder, pxt_service
 ```
 
 ## CLI
@@ -75,15 +75,15 @@ python -m eval status --failed         # Show failures only
 | Story | Description |
 |-------|-------------|
 | u1 | PDF RAG pipeline (base table + chunk view + embedding + LLM) |
-| u2 | Project scaffolding with `uvx pixeltable-new` |
-| u3 | `pxt serve` configuration (pyproject.toml + @pxt.query) |
+| u2 | Project scaffolding (pixeltable-new / pxt init + example) |
+| u3 | REST API via TableModel + FastAPIRouter (pxt schema update + pxt service update) |
 
 ## Scoring
 
 | Metric | Range | What it measures |
 |--------|-------|-----------------|
 | Pass | 0/1 | All positive patterns present, no anti-patterns |
-| Idiomaticity | 0-5 | Uses computed columns, embedding indexes, scaffolder, pxt serve |
+| Idiomaticity | 0-5 | Uses computed columns, embedding indexes, TableModel + FastAPIRouter, pxt service update |
 | Hallucinations | int | Non-existent APIs called (lower = better) |
 | Turns | int | How many agent turns to produce code |
 

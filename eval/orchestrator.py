@@ -37,7 +37,7 @@ from eval.stats import (
 )
 from eval.stories.u1_pdf_rag import PROMPT as U1_PROMPT, U1PdfRagVerifier
 from eval.stories.u2_scaffolding import PROMPT as U2_PROMPT, U2ScaffoldingVerifier
-from eval.stories.u3_pxt_serve import PROMPT as U3_PROMPT, U3PxtServeVerifier
+from eval.stories.u3_service import PROMPT as U3_PROMPT, U3ServiceVerifier
 from eval.verifier import VerificationResult
 
 
@@ -49,7 +49,7 @@ RUNNERS = {
 STORIES = {
     "u1": (U1_PROMPT, U1PdfRagVerifier),
     "u2": (U2_PROMPT, U2ScaffoldingVerifier),
-    "u3": (U3_PROMPT, U3PxtServeVerifier),
+    "u3": (U3_PROMPT, U3ServiceVerifier),
 }
 
 FIXTURES = {
@@ -96,7 +96,26 @@ def run_single_cell(
             )
 
         code = runner_result.extracted_code
-        verification: VerificationResult = verifier.verify(code, sandbox=None)
+        # All created files are evidence for static analysis. The sandbox only
+        # ever executes ``code`` (the extracted entry point), so non-Python
+        # files here are safe to include.
+        extra_evidence = "\n\n".join(runner_result.files_created.values())
+
+        with PixeltableSandbox(fixture_dir=fixture_dir) as sandbox:
+            # Mirror the agent's files into the sandbox so multi-file projects
+            # resolve imports and pxt commands find the real layout.
+            for name, content in runner_result.files_created.items():
+                dest = (sandbox.workdir / name).resolve()
+                if not dest.is_relative_to(sandbox.workdir.resolve()):
+                    continue
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_text(content)
+            verification: VerificationResult = verifier.verify(
+                code,
+                sandbox=sandbox,
+                transcript=runner_result.raw_output,
+                extra_evidence=extra_evidence,
+            )
 
         return _make_result(
             story_id, runner_name, context, rep, runner_result, verification,
@@ -125,7 +144,11 @@ def _save_artifacts(run_dir: Path, context: ContextLevel, rep: int, runner_resul
         files_dir = code_dir / label
         files_dir.mkdir(exist_ok=True)
         for fname, content in runner_result.files_created.items():
-            (files_dir / fname).write_text(content)
+            dest = (files_dir / fname).resolve()
+            if not dest.is_relative_to(files_dir.resolve()):
+                continue
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(content)
 
 
 def _make_result(

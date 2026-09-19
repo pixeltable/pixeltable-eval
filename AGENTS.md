@@ -8,8 +8,8 @@ This repo is an eval harness that measures how well AI coding agents write Pixel
 - `eval/verifier.py` — Base verifier with static analysis and scoring (idiomaticity, hallucinations)
 - `eval/stories/` — Per-story verifiers (positive/negative patterns + functional checks)
   - `u1_pdf_rag.py` — PDF RAG pipeline
-  - `u2_scaffolding.py` — Project scaffolding with `pixeltable-new`
-  - `u3_pxt_serve.py` — REST API via `pxt serve`
+  - `u2_scaffolding.py` — Project scaffolding (pixeltable-new / pxt init + example)
+  - `u3_service.py` — REST API via TableModel + FastAPIRouter + `pxt service update`
 - `eval/runners/` — Agent drivers (Claude Code `--print`, Cursor SDK)
 - `eval/environments/` — Context level setup (cold, skill, skill+MCP, plugin)
 - `eval/orchestrator.py` — Matrix runner and result collection

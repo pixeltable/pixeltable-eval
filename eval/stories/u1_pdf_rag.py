@@ -35,7 +35,7 @@ class U1PdfRagVerifier(StoryVerifier):
         return [
             (r"pxt\.Document", "uses pxt.Document type"),
             (r"document_splitter", "uses document_splitter for chunking"),
-            (r"add_embedding_index\s*\(", "creates embedding index"),
+            (r"add_embedding_index\s*\(|__indexes__|EmbeddingIndex", "creates embedding index"),
             (r"\.similarity\s*\(", "uses similarity search"),
             (r"chat_completions|messages|generate_content", "calls an LLM for answering"),
         ]
@@ -85,9 +85,8 @@ import json
 try:
     t = pxt.get_table('{chunk_table}')
     count = t.count()
-    cols = [c.name for c in t.columns()]
-    has_embedding = any('embed' in c.lower() or 'index' in c.lower() for c in cols)
-    schema = {{c.name: str(c.col_type) for c in t.columns()}}
+    cols = t.columns()
+    schema = {{name: meta['type_'] for name, meta in t.get_metadata()['columns'].items()}}
     print(json.dumps({{
         "chunk_count": count,
         "columns": cols,

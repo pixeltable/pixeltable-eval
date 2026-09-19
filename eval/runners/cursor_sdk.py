@@ -17,7 +17,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from eval.runners.base import BaseRunner, RunnerResult
+from eval.runners.base import BaseRunner, RunnerResult, collect_created_files
 
 CURSOR_RUNNER_SCRIPT = """\
 const { Agent } = require("@cursor/sdk");
@@ -82,12 +82,16 @@ class CursorSdkRunner(BaseRunner):
             )
             elapsed = time.monotonic() - start
         except subprocess.TimeoutExpired:
+            elapsed = time.monotonic() - start
+            files_created = collect_created_files(workdir)
+            code = self._extract_code("", files_created)
             return RunnerResult(
                 runner_name=self.name,
                 raw_output="",
-                extracted_code="",
-                error=f"Timeout after {timeout}s",
-                elapsed_seconds=time.monotonic() - start,
+                extracted_code=code,
+                files_created=files_created,
+                error=f"Timeout after {timeout}s (files may still be valid)",
+                elapsed_seconds=elapsed,
             )
         except FileNotFoundError:
             return RunnerResult(
@@ -99,7 +103,7 @@ class CursorSdkRunner(BaseRunner):
             )
 
         raw = proc.stdout
-        files_created = self._collect_files(workdir)
+        files_created = collect_created_files(workdir)
         code = self._extract_code(raw, files_created)
 
         tokens_in, tokens_out, turns = 0, 0, 1
@@ -135,22 +139,13 @@ class CursorSdkRunner(BaseRunner):
                 timeout=60,
             )
 
-    def _collect_files(self, workdir: Path) -> dict[str, str]:
-        files = {}
-        for py_file in workdir.rglob("*.py"):
-            rel = str(py_file.relative_to(workdir))
-            if not rel.startswith(".") and not rel.startswith("_cursor"):
-                try:
-                    files[rel] = py_file.read_text()
-                except Exception:
-                    pass
-        return files
-
     def _extract_code(self, raw_output: str, files: dict[str, str]) -> str:
-        if files:
+        # Only Python counts as extracted code (see claude_code runner).
+        py_files = {name: c for name, c in files.items() if name.endswith(".py")}
+        if py_files:
             main_candidates = ["app.py", "main.py", "rag.py", "pipeline.py"]
             for candidate in main_candidates:
-                if candidate in files:
-                    return files[candidate]
-            return "\n\n".join(files.values())
+                if candidate in py_files:
+                    return py_files[candidate]
+            return "\n\n".join(py_files.values())
         return self.extract_python_from_output(raw_output)

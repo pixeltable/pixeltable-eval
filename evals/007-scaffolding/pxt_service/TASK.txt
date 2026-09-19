@@ -1,0 +1,13 @@
+Build a Pixeltable-powered REST API that serves a movie review analysis pipeline.
+
+Requirements:
+- Write app.py using TableModel (pxt.model_base()): a table 'reviews' with columns title (pxt.String) and review_text (pxt.String)
+- Add computed columns using OpenAI chat_completions:
+  - sentiment: classifies the review as positive/negative/neutral
+  - summary: generates a one-sentence summary of the review
+- Expose an insert route at /analyze with FastAPIRouter (from pixeltable.serving) that takes title and review_text and returns title, sentiment, and summary
+- The service must start with the pxt CLI (pxt schema update + pxt service update), not a hand-rolled server
+
+Files to create:
+- app.py (TableModel + FastAPIRouter definitions)
+- Show the commands to apply the schema and start the service

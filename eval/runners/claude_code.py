@@ -17,7 +17,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from eval.runners.base import BaseRunner, RunnerResult
+from eval.runners.base import BaseRunner, RunnerResult, collect_created_files
 
 
 class ClaudeCodeRunner(BaseRunner):
@@ -55,7 +55,7 @@ class ClaudeCodeRunner(BaseRunner):
             elapsed = time.monotonic() - start
         except subprocess.TimeoutExpired:
             elapsed = time.monotonic() - start
-            files_created = self._collect_files(workdir)
+            files_created = collect_created_files(workdir)
             code = self._extract_code("", files_created)
             return RunnerResult(
                 runner_name=self.name,
@@ -75,7 +75,7 @@ class ClaudeCodeRunner(BaseRunner):
             )
 
         raw = proc.stdout
-        files_created = self._collect_files(workdir)
+        files_created = collect_created_files(workdir)
         code = self._extract_code(raw, files_created)
 
         return RunnerResult(
@@ -94,34 +94,20 @@ class ClaudeCodeRunner(BaseRunner):
         env.pop("VIRTUAL_ENV", None)
         return env
 
-    def _collect_files(self, workdir: Path) -> dict[str, str]:
-        files = {}
-        skip_prefixes = (".", "_", "node_modules")
-        for py_file in workdir.rglob("*.py"):
-            rel = str(py_file.relative_to(workdir))
-            if any(rel.startswith(p) for p in skip_prefixes):
-                continue
-            if "venv" in rel or "site-packages" in rel:
-                continue
-            try:
-                content = py_file.read_text()
-                if content.strip():
-                    files[rel] = content
-            except Exception:
-                pass
-        return files
-
     def _extract_code(self, raw_output: str, files: dict[str, str]) -> str:
-        if files:
+        # Only Python counts as extracted code: it is executed by the sandbox
+        # and concatenating TOML/shell/markdown would corrupt it. Other files
+        # still reach the verifier via files_created -> extra_evidence.
+        py_files = {name: c for name, c in files.items() if name.endswith(".py")}
+        if py_files:
             main_candidates = [
                 "app.py", "main.py", "rag.py", "pipeline.py",
                 "pdf_qa_app.py", "pdf_rag_app.py", "pdf_rag.py",
             ]
             for candidate in main_candidates:
-                if candidate in files:
-                    return files[candidate]
-            all_code = "\n\n".join(files.values())
-            return all_code
+                if candidate in py_files:
+                    return py_files[candidate]
+            return "\n\n".join(py_files.values())
 
         return self._extract_python_from_text(raw_output)
 

@@ -46,14 +46,18 @@ class VerificationResult:
 
 HALLUCINATED_APIS = [
     (r"openai\.vision\b", "openai.vision (does not exist)"),
-    (r"from pixeltable\.iterators\s+import\s+FrameIterator", "FrameIterator (deprecated import)"),
+    (r"from pixeltable\.iterators\s+import", "pixeltable.iterators (deprecated shim, use pixeltable.functions.*)"),
     (r"pxt\.Table\s*\(", "pxt.Table() (does not exist)"),
     (r"pxt\.load_table\b", "pxt.load_table (does not exist)"),
     (r"pxt\.connect\b", "pxt.connect (does not exist)"),
     (r"\.similarity\(\s*['\"]", ".similarity() positional string (use string= kwarg)"),
     (r"from pixeltable\s+import\s+Table\b", "from pixeltable import Table (wrong)"),
-    (r"modules\s*=\s*\[", "modules field in pyproject.toml (deprecated, does not exist)"),
-    (r"query\s*=\s*['\"][\w.]+\.[\w.]+['\"]", "dot notation for serve query (use colon: module:func)"),
+    (r"pxt\.Required\s*\[", "pxt.Required (does not exist; optional is T | None)"),
+    (r"\bpxt\s+serve\b", "pxt serve (retired CLI; use pxt schema update + pxt service update)"),
+    (r"\bpxt\s+service\s+run\b", "pxt service run (does not exist; use pxt service update)"),
+    (r"\[+\s*tool\.pixeltable\.(serve|service)", "[tool.pixeltable.serve/service] TOML (does not exist)"),
+    (r"\[\[\s*service\s*\]\]|\[\[\s*service\.routes\s*\]\]", "[[service]] TOML routes (retired; use FastAPIRouter)"),
+    (r"uvx\s+pixeltable-new[^\n]*--(backend|serving|batch)\b", "pixeltable-new --backend/--serving/--batch (removed flags)"),
 ]
 
 IDIOMATICITY_SIGNALS = [
@@ -67,9 +71,14 @@ IDIOMATICITY_SIGNALS = [
     (r"pxt\.create_dir\s*\(", "creates directory namespace"),
     (r"@pxt\.(udf|query)\b", "defines UDF or query function"),
     (r"\.choices\[0\]\.message\.content", "extracts OpenAI response correctly"),
-    (r"uvx\s+pixeltable-new|pixeltable.new", "uses pixeltable-new scaffolder"),
-    (r"\[tool\.pixeltable\.serve\]", "configures pxt serve in pyproject.toml"),
-    (r"pxt\s+serve\b", "uses pxt serve for API deployment"),
+    (r"uvx\s+pixeltable-new|pxt\s+init\b", "scaffolds or initializes a project"),
+    (r"TableModel|model_base\s*\(", "declares TableModel classes"),
+    (r"__indexes__\s*=", "declares indexes on the model"),
+    (r"FastAPIRouter|pixeltable\.serving", "uses FastAPIRouter for serving"),
+    (r"add_(insert|update|delete|compute|query)_route\b", "declares serving routes"),
+    (r"pxt\s+schema\s+update", "applies schema with pxt schema update"),
+    (r"pxt\s+service\s+update", "starts the service with pxt service update"),
+    (r"return_rows\s*=\s*True", "uses insert(return_rows=True)"),
 ]
 
 # Weights for composite scoring
@@ -78,6 +87,62 @@ LLM_WEIGHT = 0.50
 FUNCTIONAL_WEIGHT = 0.20
 
 PASS_THRESHOLD = 3.0  # Score >= 3.0/5.0 counts as "pass"
+
+
+_SHELL_TAGS = {"bash", "sh", "shell", "console", "zsh", "terminal", "shellsession"}
+_SNIFF_TAGS = {"", "text", "txt", "plaintext"}
+_SHELL_LINE = re.compile(
+    r"^\s*[$>⏺]?\s*"
+    r"(?:pxt|uvx|uv|pip3?|python3?|pytest|npm|npx|node|git|curl|wget|cd|mkdir"
+    r"|export|source|docker|brew)\b"
+)
+_PYTHON_LINE = re.compile(
+    r"^\s*(?:import\s+\w|from\s+\w+\s+import|def\s|class\s|@|print\s*\(|return\s)"
+)
+
+
+def _looks_like_shell(block: str) -> bool:
+    """Heuristic: an untagged fenced block is command evidence if it has at
+    least one command-looking line and no Python-looking line."""
+    lines = [ln for ln in block.splitlines() if ln.strip()]
+    return (
+        bool(lines)
+        and any(_SHELL_LINE.match(ln) for ln in lines)
+        and not any(_PYTHON_LINE.match(ln) for ln in lines)
+    )
+
+
+def command_evidence(transcript: str) -> str:
+    """Pull executed/shown commands out of an agent transcript.
+
+    Returns fenced shell blocks (bash/sh/console/…, plus untagged or
+    text-tagged blocks that look like commands) and tool-call lines
+    (``⏺ ...`` in Claude Code text output). Prose is excluded so negative
+    patterns only fire on things the agent actually ran or wrote down as
+    commands, not on words it used to describe them.
+    """
+    if not transcript:
+        return ""
+    chunks: list[str] = []
+    in_block = False
+    tag = ""
+    buf: list[str] = []
+    for ln in transcript.splitlines():
+        if not in_block:
+            m = re.match(r"^```(\w*)\s*$", ln)
+            if m:
+                in_block, tag, buf = True, m.group(1).lower(), []
+            elif ln.lstrip().startswith("⏺"):
+                chunks.append(ln)
+            continue
+        if ln.strip().startswith("```"):
+            in_block = False
+            body = "\n".join(buf)
+            if tag in _SHELL_TAGS or (tag in _SNIFF_TAGS and _looks_like_shell(body)):
+                chunks.append(body)
+        else:
+            buf.append(ln)
+    return "\n".join(chunks)
 
 
 class StoryVerifier(ABC):
@@ -109,15 +174,32 @@ class StoryVerifier(ABC):
         code: str,
         sandbox: PixeltableSandbox | None = None,
         llm_judge_result: dict | None = None,
+        transcript: str = "",
+        extra_evidence: str = "",
     ) -> VerificationResult:
         """Verify generated code with composite scoring.
 
         Args:
-            code: Generated Python code
+            code: Generated code (also executed when a sandbox is given)
             sandbox: Optional sandbox for functional execution
             llm_judge_result: Optional dict from LLMJudge.grade() with score fields
+            transcript: Optional raw agent output. Commands it contains
+                (tool calls, bash blocks) count as actions taken; the rest is
+                ignored, so describing an API or an anti-pattern earns no
+                credit and triggers no penalty.
+            extra_evidence: Optional contents of other files the agent
+                created (configs, docs, scripts). Scored like code but never
+                executed.
         """
-        if not code or not code.strip():
+        # --- Layer 1: Static analysis ---
+        # Actions: created files plus commands the agent ran or wrote down.
+        # Both positive and negative patterns apply here so credit requires an
+        # artifact (code, file, or command), not a prose claim in the
+        # transcript; an agent that only describes the required APIs scores
+        # nothing for them.
+        actions = code + "\n" + extra_evidence + "\n" + command_evidence(transcript)
+
+        if not actions.strip():
             return VerificationResult(
                 story_id=self.story_id,
                 score=0.0,
@@ -128,25 +210,24 @@ class StoryVerifier(ABC):
                 functional_pass=None,
                 idiomaticity=0.0,
                 hallucination_count=0,
-                functional_details={"error": "no code extracted"},
+                functional_details={"error": "no code or file/command evidence extracted"},
             )
 
-        # --- Layer 1: Static analysis ---
         positive_hits = {
-            desc: bool(re.search(pattern, code, re.MULTILINE))
+            desc: bool(re.search(pattern, actions, re.MULTILINE))
             for pattern, desc in self.positive_patterns
         }
         negative_hits = {
-            desc: bool(re.search(pattern, code, re.MULTILINE))
+            desc: bool(re.search(pattern, actions, re.MULTILINE))
             for pattern, desc in self.negative_patterns
         }
         hallucinations = [
             desc for pattern, desc in HALLUCINATED_APIS
-            if re.search(pattern, code, re.MULTILINE)
+            if re.search(pattern, actions, re.MULTILINE)
         ]
         idiom_count = sum(
             1 for pattern, _ in IDIOMATICITY_SIGNALS
-            if re.search(pattern, code, re.MULTILINE)
+            if re.search(pattern, actions, re.MULTILINE)
         )
         idiomaticity = min(5.0, idiom_count * 5.0 / len(IDIOMATICITY_SIGNALS))
 
@@ -174,12 +255,14 @@ class StoryVerifier(ABC):
         functional: dict = {"pass": None, "skipped": True}
         functional_score = 0.0
 
+        functional_score: float | None = None
         if sandbox:
             sandbox_result = sandbox.exec_code(code)
             if sandbox_result.success:
                 try:
                     functional = self.functional_check(sandbox)
-                    functional_score = 5.0 if functional.get("pass") else 2.0
+                    if not functional.get("skipped"):
+                        functional_score = 5.0 if functional.get("pass") else 2.0
                 except Exception as e:
                     functional = {"pass": False, "error": str(e)}
                     functional_score = 1.0
@@ -195,7 +278,7 @@ class StoryVerifier(ABC):
         functional_pass = functional.get("pass")
 
         # --- Composite score ---
-        if llm_score is not None and sandbox:
+        if llm_score is not None and functional_score is not None:
             # All three layers available
             score = (
                 STATIC_WEIGHT * static_score +
@@ -203,11 +286,11 @@ class StoryVerifier(ABC):
                 FUNCTIONAL_WEIGHT * functional_score
             )
         elif llm_score is not None:
-            # Static + LLM (no sandbox)
+            # Static + LLM (no sandbox, or functional check skipped)
             adjusted_static_w = STATIC_WEIGHT / (STATIC_WEIGHT + LLM_WEIGHT)
             adjusted_llm_w = LLM_WEIGHT / (STATIC_WEIGHT + LLM_WEIGHT)
             score = adjusted_static_w * static_score + adjusted_llm_w * llm_score
-        elif sandbox:
+        elif functional_score is not None:
             # Static + functional (no LLM)
             adjusted_static_w = STATIC_WEIGHT / (STATIC_WEIGHT + FUNCTIONAL_WEIGHT)
             adjusted_func_w = FUNCTIONAL_WEIGHT / (STATIC_WEIGHT + FUNCTIONAL_WEIGHT)
