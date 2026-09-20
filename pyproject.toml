@@ -4,9 +4,10 @@ version = "0.1.0"
 description = "Eval harness measuring how well AI coding agents write Pixeltable code"
 requires-python = ">=3.10"
 dependencies = [
-    # The serve extra pulls fastapi[standard] (uvicorn + python-multipart),
-    # which FastAPIRouter routes need at definition time.
-    "pixeltable[serve]>=0.6.0",
+    # serve extra (first released in 0.6.5) pulls fastapi[standard]: uvicorn
+    # plus python-multipart, which uploadfile_inputs routes need at app
+    # definition time.
+    "pixeltable[serve]>=0.6.5",
     "openai>=1.0",
     "tiktoken>=0.7",
     "anthropic>=0.40.0",
