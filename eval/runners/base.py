@@ -46,6 +46,10 @@ def collect_created_files(workdir: Path) -> dict[str, str]:
             continue
         if any(p in SKIP_DIRS or "venv" in p for p in rel.parts):
             continue
+        # Skill payloads installed by env setup (npx skills add writes
+        # agent/skills/**) are harness fixtures, not agent output.
+        if len(rel.parts) >= 2 and rel.parts[1] == "skills" and rel.parts[0] in {"agent", "agents"}:
+            continue
         try:
             content = f.read_text()
         except Exception:
