@@ -16,7 +16,7 @@ chunks = pxt.create_view(
 
 chunks.add_embedding_index(
     'text',
-    embedding=embeddings(model='text-embedding-3-small'),
+    embedding=embeddings.using(model='text-embedding-3-small'),
     if_exists='ignore'
 )
 
@@ -28,7 +28,8 @@ def search_chunks(query: str, limit: int = 5):
 
 
 def ask(question: str) -> str:
-    context_rows = search_chunks(question).collect()
+    sim = chunks.text.similarity(string=question)
+    context_rows = chunks.order_by(sim, asc=False).limit(5).select(chunks.text).collect()
     context = "\n".join(row['text'] for row in context_rows)
     prompt = f"Answer based on context:\n{context}\n\nQuestion: {question}"
 
