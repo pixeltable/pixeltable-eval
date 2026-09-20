@@ -198,7 +198,7 @@ Verified live: 4 frames from `num_frames=4`; 3 segments from `duration=30,overla
 - **`document_splitter(separators='paragraph')` does not support PDF** - insert fails atomically with `UNSUPPORTED_OPERATION` (no base row, no error cells, whole insert rolls back). For PDF use `'page'`, `'token_limit'`, or `'char_limit'` (the latter two need `limit=`). `.md`/`.txt` paragraph splitting works.
 - **Changing a route's `inputs` is destructive**: `pxt service update` reports "route will be replaced: inputs changed [destructive]" and requires `--allow-destructive`.
 - **A `@pxt.query` call returns an expression, not a result set**: `search_chunks(q).collect()` resolves `collect` as a JsonPath and 400s. Query functions are for routes and computed columns; for ad-hoc execution write the table query inline (`chunks.order_by(sim)...collect()`).
-- **`FastAPIRouter` needs `fastapi` (and `uvicorn` to serve) installed**: the import itself raises `ImportError: pixeltable.serving.FastAPIRouter requires fastapi` — they are not pixeltable dependencies.
+- **`FastAPIRouter` needs `fastapi` (and `uvicorn` to serve) installed**: the import itself raises `ImportError: pixeltable.serving.FastAPIRouter requires fastapi` — they are not pixeltable dependencies. Routes with `uploadfile_inputs` additionally need `python-multipart` at app definition time (`RuntimeError: Form data requires "python-multipart"`); `pixeltable[serve]` installs all three via `fastapi[standard]`.
 - **`embeddings(model=...)` does not bind parameters**: in 0.7.8 the signature is `(input, model, model_kwargs)`, so call sites must use `embeddings.using(model=...)`; the bare call errors `missing a required argument: 'input'`.
 
 ## Round 3 (2026-09-18): full live pass, all 17 apps

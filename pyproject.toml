@@ -4,15 +4,15 @@ version = "0.1.0"
 description = "Eval harness measuring how well AI coding agents write Pixeltable code"
 requires-python = ">=3.10"
 dependencies = [
-    "pixeltable>=0.6.0",
+    # The serve extra pulls fastapi[standard] (uvicorn + python-multipart),
+    # which FastAPIRouter routes need at definition time.
+    "pixeltable[serve]>=0.6.0",
     "openai>=1.0",
     "tiktoken>=0.7",
     "anthropic>=0.40.0",
     "reportlab>=4.0",
     # Generated apps use these documented Pixeltable integrations; functional
     # checks fail without them even when the code is correct.
-    "fastapi>=0.110",
-    "uvicorn>=0.29",
     "spacy>=3.7",
     "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
     "sentence-transformers>=3.0",

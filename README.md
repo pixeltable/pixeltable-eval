@@ -34,8 +34,9 @@ Interpretation notes:
   `Documents.view` (not a real API), `base=` given an iterator call instead
   of a table, `.data`/`.self_path` on Array-typed columns, and treating
   `QueryTemplateFunction` parameters as attributes (`search_chunks.question`).
-- **Env deps the eval needs beyond pixeltable**: `openai`, `tiktoken`
-  (`token_limit` splitter), `fastapi`+`uvicorn` (FastAPIRouter),
+- **Env deps the eval needs**: `pixeltable[serve]` for the FastAPIRouter
+  stack (fastapi, uvicorn, `python-multipart` for `uploadfile_inputs`
+  routes), `openai`, `tiktoken` (`token_limit` splitter),
   `spacy`+`en_core_web_sm` (sentence splitter), `sentence-transformers`
   (HF embeddings). Provider keys reach the sandbox via a symlinked
   `~/.pixeltable/config.toml`.
@@ -146,6 +147,7 @@ credit alone cannot carry a broken app.
 - Python 3.10+
 - `claude` CLI with `ANTHROPIC_API_KEY` for Claude Code runner
 - Node.js 18+ with `CURSOR_API_KEY` for Cursor SDK runner
-- `pip install -e .` pulls the functional-check deps (openai, tiktoken,
-  fastapi, uvicorn, spacy + en_core_web_sm wheel, sentence-transformers);
+- `pip install -e .` pulls the functional-check deps (`pixeltable[serve]`
+  for FastAPIRouter routes incl. `python-multipart`, openai, tiktoken,
+  spacy + en_core_web_sm wheel, sentence-transformers);
   provider keys come from `~/.pixeltable/config.toml` or env vars
