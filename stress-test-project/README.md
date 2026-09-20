@@ -224,9 +224,12 @@ Zero error cells across all 38 tables/views afterward.
 - Daemon port isolation: `PXT_PORT=<port>` runs an independent daemon with its own pidfile. Useful when another project's pxt daemon (e.g. pixelbot's venv) holds the default 22089.
 
 Cloud gotchas hit:
-- `requirements.txt` must include `pixeltable==<version>` itself: the image
-  build treats it as the full dep set; without it pods crash with
-  `ModuleNotFoundError: No module named 'pixeltable'`. Same for the spaCy
+- `requirements.txt` must include pixeltable itself, pinned as
+  `pixeltable[serve]==<version>`: the image build treats it as the full dep
+  set. Without pixeltable pods crash with `ModuleNotFoundError`; without
+  the `serve` extra FastAPIRouter imports fail (no fastapi), services have
+  no uvicorn, and `uploadfile_inputs` routes lack python-multipart. Same
+  for the spaCy
   model: `string_splitter('sentence')`/`document_splitter` load
   `en_core_web_sm` lazily at first split (schema/view creation succeeds
   without it; inserts then fail), and `spacy download` cannot run in the
