@@ -2,25 +2,55 @@
 
 Measures how well AI coding agents write Pixeltable code under different context levels (cold, with skill, with skill + MCP).
 
-## R0 Spike Results (validated)
+## Results
 
-| Context | Pass Rate | Idiomaticity (avg) | Hallucinations (avg) |
-|---------|-----------|--------------------|--------------------|
-| cold | 67% | 3.0 | 0.0 |
-| skill | **100%** | **5.0** | 0.0 |
-| skill_mcp | **100%** | **4.8** | 0.0 |
+### U1 spike, corrected re-grade (claude-sonnet-4-5, n=10 per context)
 
-**Lift (cold → skill): +33pp** — Premise validated.
+30 cells were run with real `claude_code` (u1 PDF RAG), then re-graded
+offline on the saved artifacts after fixing harness bugs that produced
+false negatives: installed skill files counted as agent output, top-level
+`@pxt.udf` rejected under `__main__` exec, TableModel answers never
+materialized (no `pxt schema update`), check scripts calling a different
+`pxt` than the harness interpreter, and missing env deps. Same generated
+code, corrected grading:
 
-### Harness verification (2026-09)
+| Context | Pass (score >= 3.0) | Functional pass | Hallucinations |
+|---------|--------------------:|----------------:|---------------:|
+| cold | 90% | 50% | 0 |
+| skill | 90% | 20% | 0 |
+| skill_mcp | 80% | 20% | 0 |
 
-The full pipeline was exercised end-to-end with a fixture runner (no agent CLI):
-env setup, file collection, sandbox execution, functional checks, scoring, and
-`results.json` output. All three orchestrator stories pass against reference
-implementations (u1: real PDF inserts, chunk view, embeddings; u3: real
-`pxt init` + `pxt schema update` materializing computed columns). Functional
-grading requires the harness interpreter to carry `openai` — it is now a
-declared dependency. Live agent-matrix runs need `claude` CLI auth.
+**No context lift on this story.** The earlier "+33pp skill lift" figure was
+measured on stale graders that rewarded retired APIs and never executed
+code; treat it as void.
+
+Interpretation notes:
+
+- **Pass is static-heavy.** A perfect static score alone (5.0 * 0.6 = 3.0)
+  reaches the pass bar without executing, so the functional pass rate is the
+  stricter "works end-to-end" measure.
+- **Dominant real failure mode is the TableModel class-body DSL**: forward
+  `NameError` (referencing `Chunks` inside its own definition),
+  `Documents.view` (not a real API), `base=` given an iterator call instead
+  of a table, `.data`/`.self_path` on Array-typed columns, and treating
+  `QueryTemplateFunction` parameters as attributes (`search_chunks.question`).
+- **Env deps the eval needs beyond pixeltable**: `openai`, `tiktoken`
+  (`token_limit` splitter), `fastapi`+`uvicorn` (FastAPIRouter),
+  `spacy`+`en_core_web_sm` (sentence splitter), `sentence-transformers`
+  (HF embeddings). Provider keys reach the sandbox via a symlinked
+  `~/.pixeltable/config.toml`.
+- **Infra flake ~10%**: every cell boots a fresh embedded postgres; a couple
+  of `initdb` calls failed transiently under 30 back-to-back launches.
+  Re-running a flake cell in isolation passes.
+
+### Harness verification
+
+The full pipeline was exercised end-to-end: env setup, file collection,
+sandbox execution, functional checks, scoring, and `results.json` output.
+The u1 reference answer now runs `ask()` for real — embeddings, similarity
+search and `chat_completions` all fire inside the sandbox ("Employees
+receive 20 vacation days per calendar year"). u3 materializes computed
+columns through real `pxt init` + `pxt schema update`.
 
 ## Quick Start
 
@@ -105,9 +135,17 @@ After running the spike:
 - **Lift < 10pp**: Thesis not supported → investigate
 - **Variance > 25pp**: Need more reps
 
+U1 outcome: no lift (90/90/80 at n=10) — below the 10pp floor, but the cell
+size is too small to distinguish skill harm from noise. Before treating
+"context adds nothing" as the answer, run a story where cold starts weaker
+(u1 may be near-saturated) and consider tightening the pass bar so static
+credit alone cannot carry a broken app.
+
 ## Requirements
 
 - Python 3.10+
 - `claude` CLI with `ANTHROPIC_API_KEY` for Claude Code runner
 - Node.js 18+ with `CURSOR_API_KEY` for Cursor SDK runner
-- `pixeltable` installed for sandbox verification
+- `pip install -e .` pulls the functional-check deps (openai, tiktoken,
+  fastapi, uvicorn, spacy + en_core_web_sm wheel, sentence-transformers);
+  provider keys come from `~/.pixeltable/config.toml` or env vars

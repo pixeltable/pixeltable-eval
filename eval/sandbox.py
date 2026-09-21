@@ -45,6 +45,16 @@ class PixeltableSandbox:
                 if f.is_file():
                     shutil.copy2(f, docs_dir / f.name)
 
+        # Provider api keys live in ~/.pixeltable/config.toml; symlink it into
+        # the sandbox home so generated code can call OpenAI etc. Symlink
+        # rather than copy so secrets are not duplicated on disk.
+        user_cfg = Path.home() / ".pixeltable" / "config.toml"
+        if user_cfg.exists():
+            try:
+                (self.home / "config.toml").symlink_to(user_cfg)
+            except OSError:
+                pass
+
     def exec_code(self, code: str) -> SandboxResult:
         """Execute a Python code string in an isolated subprocess."""
         script = self.workdir / "_eval_script.py"
@@ -66,6 +76,18 @@ class PixeltableSandbox:
                 text=True,
                 timeout=self.timeout,
             )
+            # @pxt.udf at top level is rejected in __main__ but valid when the
+            # file is imported as a module (how pxt schema update treats it).
+            # Retry as a module so current-style app code is graded fairly.
+            if proc.returncode != 0 and "global namespace of a Python script" in proc.stderr:
+                proc = subprocess.run(
+                    [sys.executable, "-c", f"import {script.stem}"],
+                    cwd=str(self.workdir),
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=self.timeout,
+                )
             elapsed = time.monotonic() - start
 
             generated = [

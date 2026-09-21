@@ -84,15 +84,20 @@ class U3ServiceVerifier(StoryVerifier):
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 
+# Use the pxt binary from the same interpreter as this script; a different
+# pxt on PATH may run a different pixeltable version.
 def sh(cmd):
     return subprocess.run(cmd, capture_output=True, text=True, timeout=240)
 
 
 try:
-    sh(["pxt", "init"])
-    upd = sh(["pxt", "schema", "update", "app.py", "eval_app", "-f"])
+    pxtc = Path(sys.executable).parent / "pxt"
+    pxtc = str(pxtc) if pxtc.exists() else "pxt"
+    sh([pxtc, "init"])
+    upd = sh([pxtc, "schema", "update", "app.py", "eval_app", "-f"])
     if upd.returncode != 0:
         print(json.dumps({"error": f"pxt schema update failed: {upd.stderr[-300:]}"}))
         sys.exit(0)

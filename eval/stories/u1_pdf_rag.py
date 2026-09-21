@@ -7,7 +7,8 @@ that lets me ask questions about them."
 Verifier checks:
 - Static: uses Document type, document_splitter, embedding index, similarity, LLM call
 - Negative: no LangChain, no Chroma/Pinecone, no pandas-as-store, no imperative loops
-- Functional: tables exist, chunks were created, a question returns a relevant answer
+- Functional: schema materializes (imperative or TableModel style), fixture
+  PDFs are ingested, and a chunk view contains rows
 """
 
 from __future__ import annotations
@@ -58,42 +59,91 @@ class U1PdfRagVerifier(StoryVerifier):
         ]
 
     def functional_check(self, sandbox: PixeltableSandbox) -> dict:
-        tables = sandbox.list_tables()
+        # exec_verification overwrites _eval_script.py with the check script,
+        # so preserve the generated code as app.py for pxt schema update
+        # (same path u3's check takes).
+        script = sandbox.workdir / "_eval_script.py"
+        if not script.exists():
+            return {"pass": False, "reason": "no generated file to apply"}
+        (sandbox.workdir / "app.py").write_text(script.read_text())
 
-        if not tables:
-            return {"pass": False, "reason": "no tables created"}
-
-        has_view = len(tables) >= 2
-        if not has_view:
-            return {
-                "pass": False,
-                "reason": f"expected base table + chunk view, found {len(tables)} table(s): {tables}",
-            }
-
-        chunk_table = None
-        for t in tables:
-            if any(kw in t.lower() for kw in ["chunk", "split", "doc", "piece", "segment"]):
-                chunk_table = t
-                break
-        if not chunk_table:
-            chunk_table = tables[-1]
-
-        check_code = f"""\
-import pixeltable as pxt
+        check_code = """\
+import glob
 import json
+import subprocess
+import sys
+from pathlib import Path
+
+import pixeltable as pxt
+
+# Use the pxt binary from the same interpreter as this script; a different
+# pxt on PATH may run a different pixeltable version.
+pxtc = Path(sys.executable).parent / "pxt"
+pxtc = str(pxtc) if pxtc.exists() else "pxt"
 
 try:
-    t = pxt.get_table('{chunk_table}')
-    count = t.count()
-    cols = t.columns()
-    schema = {{name: meta['type_'] for name, meta in t.get_metadata()['columns'].items()}}
-    print(json.dumps({{
-        "chunk_count": count,
-        "columns": cols,
-        "schema": schema,
-    }}))
+    tables = pxt.list_tables()
+    if not tables:
+        # TableModel-style answers only declare classes; materialize them.
+        try:
+            subprocess.run([pxtc, "init"], capture_output=True, text=True, timeout=60)
+        except FileNotFoundError:
+            print(json.dumps({"error": "pxt CLI not on PATH"}))
+            sys.exit(0)
+        upd = subprocess.run(
+            [pxtc, "schema", "update", "app.py", "eval_app", "-f"],
+            capture_output=True, text=True, timeout=240,
+        )
+        if upd.returncode != 0:
+            print(json.dumps({"error": f"pxt schema update failed: {upd.stderr[-300:]}"}))
+            sys.exit(0)
+        tables = pxt.list_tables()
+
+    base = None
+    views = []
+    others = []
+    for name in tables:
+        t = pxt.get_table(name)
+        meta = t.get_metadata()
+        doc_col = next(
+            (c for c, m in meta["columns"].items()
+             if "document" in str(m.get("type_", "")).lower()),
+            None,
+        )
+        if meta.get("is_view"):
+            views.append(t)
+        elif doc_col is not None and base is None:
+            base = (t, doc_col, meta["columns"])
+        else:
+            others.append(t)
+
+    # Schema-only answers leave the base empty; insert the fixture PDFs so
+    # the chunk pipeline actually runs. Required scalar columns get simple
+    # defaults (the file path for strings) so declared-but-unused columns
+    # do not block the insert.
+    if base is not None and base[0].count() == 0:
+        t, doc_col, cols = base
+        pdfs = sorted(glob.glob("docs/*.pdf"))
+        rows = []
+        for i, p in enumerate(pdfs):
+            row = {doc_col: p}
+            for c, m in cols.items():
+                typ = str(m.get("type_", "")).lower()
+                if c == doc_col or "| none" in typ or m.get("is_computed"):
+                    continue
+                defaults = {"string": p, "int": i, "float": 0.0, "bool": False}
+                if typ in defaults:
+                    row[c] = defaults[typ]
+            rows.append(row)
+        if rows:
+            t.insert(rows)
+
+    candidates = views or others
+    chunk_count = max((t.count() for t in candidates), default=None)
+
+    print(json.dumps({"tables": tables, "chunk_count": chunk_count}))
 except Exception as e:
-    print(json.dumps({{"error": str(e)}}))
+    print(json.dumps({"error": str(e)[:300]}))
 """
         result = sandbox.exec_verification(check_code)
 
@@ -108,15 +158,24 @@ except Exception as e:
             return {"pass": False, "reason": f"bad verification output: {result.stdout}"}
 
         if "error" in data:
+            if "pxt CLI not on PATH" in data["error"]:
+                return {"pass": None, "skipped": True, "reason": data["error"]}
             return {"pass": False, "reason": data["error"]}
 
-        chunk_count = data.get("chunk_count", 0)
+        tables = data.get("tables", [])
+        if len(tables) < 2:
+            return {
+                "pass": False,
+                "reason": f"expected base table + chunk view, found {len(tables)} table(s): {tables}",
+            }
+        chunk_count = data.get("chunk_count")
+        if chunk_count is None:
+            return {"pass": False, "reason": "no chunk view or second table found"}
         if chunk_count == 0:
             return {"pass": False, "reason": "chunk table is empty (0 rows)"}
 
         return {
             "pass": True,
             "chunk_count": chunk_count,
-            "columns": data.get("columns", []),
             "tables_found": tables,
         }
