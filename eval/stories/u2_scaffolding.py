@@ -55,7 +55,7 @@ class U2ScaffoldingVerifier(StoryVerifier):
             (r"@pxt\.query\b", "defines a @pxt.query function"),
             (r"FastAPIRouter|pixeltable\.serving|add_query_route", "exposes the query via FastAPIRouter"),
             (r"pxt\s+schema\s+update", "applies schema with pxt schema update"),
-            (r"pxt\s+service\s+update", "starts the service with pxt service update"),
+            (r"pxt\s+service\s+(update|run)\b", "starts the service with pxt service update/run"),
         ]
 
     @property

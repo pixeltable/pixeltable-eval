@@ -8,7 +8,8 @@ Verifier checks:
 - Static: uses Document type, document_splitter, embedding index, similarity, LLM call
 - Negative: no LangChain, no Chroma/Pinecone, no pandas-as-store, no imperative loops
 - Functional: schema materializes (imperative or TableModel style), fixture
-  PDFs are ingested, and a chunk view contains rows
+  PDFs are ingested, a chunk view contains rows, and a similarity query over
+  the chunks actually executes (proving an embedding index exists)
 """
 
 from __future__ import annotations
@@ -141,7 +142,42 @@ try:
     candidates = views or others
     chunk_count = max((t.count() for t in candidates), default=None)
 
-    print(json.dumps({"tables": tables, "chunk_count": chunk_count}))
+    # Prove the query path works end to end: similarity() only resolves when
+    # the column carries a live embedding index, and running it exercises the
+    # embed function on the query string. Provider auth failures are recorded
+    # as env issues, not app defects.
+    sim_ok = False
+    sim_auth = False
+    sim_err = None
+    sim_col = None
+    probes = list(candidates) + ([base[0]] if base else [])
+    for cand in probes:
+        meta = cand.get_metadata()
+        for cname, m in meta["columns"].items():
+            if "string" not in str(m.get("type_", "")).lower():
+                continue
+            try:
+                sim = cand[cname].similarity(string="test query")
+                cand.order_by(sim, asc=False).limit(1).collect()
+                sim_ok, sim_col = True, cname
+                break
+            except Exception as e:
+                msg = str(e).lower()
+                if any(k in msg for k in ("api_key", "api key", "401", "authentication", "unauthorized")):
+                    sim_auth = True
+                else:
+                    sim_err = str(e)[:200]
+        if sim_ok or sim_auth:
+            break
+
+    print(json.dumps({
+        "tables": tables,
+        "chunk_count": chunk_count,
+        "similarity_ok": sim_ok,
+        "similarity_auth_skip": sim_auth,
+        "similarity_column": sim_col,
+        "similarity_error": sim_err,
+    }))
 except Exception as e:
     print(json.dumps({"error": str(e)[:300]}))
 """
@@ -173,9 +209,17 @@ except Exception as e:
             return {"pass": False, "reason": "no chunk view or second table found"}
         if chunk_count == 0:
             return {"pass": False, "reason": "chunk table is empty (0 rows)"}
+        if not (data.get("similarity_ok") or data.get("similarity_auth_skip")):
+            return {
+                "pass": False,
+                "reason": f"similarity query does not run: {data.get('similarity_error')}",
+                "chunk_count": chunk_count,
+            }
 
         return {
             "pass": True,
             "chunk_count": chunk_count,
             "tables_found": tables,
+            "similarity_column": data.get("similarity_column"),
+            "similarity_auth_skip": data.get("similarity_auth_skip"),
         }

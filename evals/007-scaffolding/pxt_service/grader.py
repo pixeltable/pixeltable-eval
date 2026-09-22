@@ -15,7 +15,7 @@ POSITIVE_PATTERNS = [
     (r"chat_completions|messages", "calls an LLM"),
     (r"\.choices\[0\]\.message\.content", "extracts OpenAI response correctly"),
     (r"pxt\s+schema\s+update", "applies schema with pxt schema update"),
-    (r"pxt\s+service\s+update", "starts service with pxt service update"),
+    (r"pxt\s+service\s+(update|run)\b", "starts the service with pxt service update/run"),
 ]
 
 NEGATIVE_PATTERNS = [

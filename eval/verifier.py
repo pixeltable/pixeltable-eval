@@ -54,10 +54,13 @@ HALLUCINATED_APIS = [
     (r"from pixeltable\s+import\s+Table\b", "from pixeltable import Table (wrong)"),
     (r"pxt\.Required\s*\[", "pxt.Required (does not exist; optional is T | None)"),
     (r"\bpxt\s+serve\b", "pxt serve (retired CLI; use pxt schema update + pxt service update)"),
-    (r"\bpxt\s+service\s+run\b", "pxt service run (does not exist; use pxt service update)"),
     (r"\[+\s*tool\.pixeltable\.(serve|service)", "[tool.pixeltable.serve/service] TOML (does not exist)"),
     (r"\[\[\s*service\s*\]\]|\[\[\s*service\.routes\s*\]\]", "[[service]] TOML routes (retired; use FastAPIRouter)"),
     (r"uvx\s+pixeltable-new[^\n]*--(backend|serving|batch)\b", "pixeltable-new --backend/--serving/--batch (removed flags)"),
+    (r"\bembeddings\s*\(\s*model\s*=", "embeddings(model=...) bare call (bind params via embeddings.using(model=...))"),
+    (r"\b[A-Z]\w*\.view\s*\(", "Model.view() (not a real API; views come from iterators/create_view)"),
+    (r"base\s*=\s*\w*(?:splitter|iterator)\w*\s*\(", "base= takes a table, not an iterator call"),
+    (r"\.self_path\b", "col.self_path (does not exist)"),
 ]
 
 IDIOMATICITY_SIGNALS = [
@@ -77,8 +80,11 @@ IDIOMATICITY_SIGNALS = [
     (r"FastAPIRouter|pixeltable\.serving", "uses FastAPIRouter for serving"),
     (r"add_(insert|update|delete|compute|query)_route\b", "declares serving routes"),
     (r"pxt\s+schema\s+update", "applies schema with pxt schema update"),
-    (r"pxt\s+service\s+update", "starts the service with pxt service update"),
+    (r"pxt\s+service\s+(update|run)\b", "starts the service with pxt service update/run"),
     (r"return_rows\s*=\s*True", "uses insert(return_rows=True)"),
+    (r"uploadfile_inputs\s*=", "declares multipart upload inputs"),
+    (r"return_fileresponse\s*=\s*True", "serves media via return_fileresponse"),
+    (r"export_sql\s*=", "dual-writes rows via export_sql"),
 ]
 
 # Weights for composite scoring

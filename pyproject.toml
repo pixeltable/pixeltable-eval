@@ -28,6 +28,12 @@ dev = [
 [tool.setuptools.packages.find]
 include = ["eval*"]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: tests that boot real pixeltable services (seconds to minutes)",
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"

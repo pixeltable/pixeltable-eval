@@ -11,12 +11,19 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
 import textwrap
 from dataclasses import dataclass, field
 from pathlib import Path
+
+
+def _free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
 
 
 @dataclass
@@ -63,6 +70,9 @@ class PixeltableSandbox:
         env = os.environ.copy()
         env["PIXELTABLE_HOME"] = str(self.home)
         env.pop("PIXELTABLE_CONFIG", None)
+        # Isolate the pxt daemon from any other project's daemon on this
+        # machine; service commands in functional checks get their own.
+        env["PXT_PORT"] = str(_free_port())
 
         import time
         start = time.monotonic()

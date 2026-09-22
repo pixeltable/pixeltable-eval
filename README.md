@@ -50,8 +50,40 @@ The full pipeline was exercised end-to-end: env setup, file collection,
 sandbox execution, functional checks, scoring, and `results.json` output.
 The u1 reference answer now runs `ask()` for real — embeddings, similarity
 search and `chat_completions` all fire inside the sandbox ("Employees
-receive 20 vacation days per calendar year"). u3 materializes computed
-columns through real `pxt init` + `pxt schema update`.
+receive 20 vacation days per calendar year").
+
+Functional checks prove the app works, not just that the schema exists:
+
+- **u1** ingests the fixture PDFs, then runs a real `.similarity()` query —
+  it only resolves when a live embedding index exists. Provider auth
+  failures are recorded as env issues, not app defects.
+- **u3** runs `pxt init` + `pxt schema update`, then `pxt service update`,
+  discovers the serving port via `pxt service list --json`, and POSTs to
+  `/analyze`. A pass requires a running service exposing the route; the
+  service and its daemon are stopped afterward (each sandbox gets a private
+  `PXT_PORT`).
+
+### Testing the harness
+
+```bash
+pytest                 # all tests, incl. the ~15s live service test
+pytest -m "not slow"   # static + canary only
+```
+
+- `tests/test_verifier.py` — static layer: `command_evidence` (prose earns
+  no credit), every `HALLUCINATED_APIS` pattern must match a real snippet,
+  known-good vs known-bad scoring, skipped-functional reweighting.
+- `tests/test_canary.py` — every `evals/**/answer/` must satisfy its own
+  `grader.py`; a failure means the grader drifted, not the agent.
+- `tests/test_u3_functional.py` — end-to-end canary: a known-good
+  TableModel app must boot and serve through the real sandbox.
+
+Each result row records `environment` (resolved pixeltable/fastapi/spacy/
+etc. versions) so scores are attributable to a dep set — pixeltable is
+unbounded above. `--judge-model <name>` enables the cross-model LLM judge
+(default off; without it the composite is static+functional only). The
+summary's `Func` column shows how many cells ran the functional check vs
+skipped it.
 
 ## Quick Start
 
@@ -98,6 +130,7 @@ evals/
 python -m eval list                    # List all evals
 python -m eval run --spike             # R0 spike
 python -m eval run -c skill -r claude_code --reps 3
+python -m eval.orchestrator --judge-model gpt-4o   # add the LLM judge layer
 python -m eval status                  # Show last results
 python -m eval status --failed         # Show failures only
 ```
@@ -115,9 +148,9 @@ python -m eval status --failed         # Show failures only
 
 | Story | Description |
 |-------|-------------|
-| u1 | PDF RAG pipeline (base table + chunk view + embedding + LLM) |
-| u2 | Project scaffolding (pixeltable-new / pxt init + example) |
-| u3 | REST API via TableModel + FastAPIRouter (pxt schema update + pxt service update) |
+| u1 | PDF RAG pipeline (base table + chunk view + embedding + LLM); functional: fixture PDFs ingested + similarity query runs |
+| u2 | Project scaffolding (pixeltable-new / pxt init + example); functional: skipped |
+| u3 | REST API via TableModel + FastAPIRouter; functional: schema update + service actually boots and answers POST /analyze |
 
 ## Scoring
 

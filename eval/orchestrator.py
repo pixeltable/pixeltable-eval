@@ -13,9 +13,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import dataclasses
+import importlib.metadata
 import json
+import platform
 import random
 import shutil
+import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -58,6 +62,36 @@ FIXTURES = {
 
 RESULTS_DIR = Path(__file__).parent.parent / "results"
 
+# Packages whose resolved versions materially change what the eval measures.
+_ENV_PACKAGES = [
+    "pixeltable",
+    "fastapi",
+    "uvicorn",
+    "python-multipart",
+    "spacy",
+    "openai",
+    "tiktoken",
+    "sentence-transformers",
+    "anthropic",
+]
+
+
+def collect_environment(judge_model: str | None = None) -> dict:
+    """Resolved dependency versions for this run, recorded per result row so
+    scores are attributable to a dep set (pixeltable is unbounded above)."""
+    env = {
+        "python": sys.version.split()[0],
+        "platform": platform.system().lower(),
+    }
+    for pkg in _ENV_PACKAGES:
+        try:
+            env[pkg] = importlib.metadata.version(pkg)
+        except importlib.metadata.PackageNotFoundError:
+            pass
+    if judge_model:
+        env["judge_model"] = judge_model
+    return env
+
 
 def run_single_cell(
     story_id: str,
@@ -66,6 +100,7 @@ def run_single_cell(
     rep: int,
     model: str | None = None,
     run_dir: Path | None = None,
+    judge=None,
 ) -> dict:
     """Execute one cell of the eval matrix."""
 
@@ -93,6 +128,7 @@ def run_single_cell(
             return _make_result(
                 story_id, runner_name, context, rep, runner_result,
                 verification=None, error=runner_result.error,
+                judge_model=getattr(judge, "model", None),
             )
 
         code = runner_result.extracted_code
@@ -100,6 +136,11 @@ def run_single_cell(
         # ever executes ``code`` (the extracted entry point), so non-Python
         # files here are safe to include.
         extra_evidence = "\n\n".join(runner_result.files_created.values())
+
+        judge_result = None
+        if judge is not None:
+            jr = judge.grade(code, task=prompt)
+            judge_result = dataclasses.asdict(jr)
 
         with PixeltableSandbox(fixture_dir=fixture_dir) as sandbox:
             # Mirror the agent's files into the sandbox so multi-file projects
@@ -113,12 +154,14 @@ def run_single_cell(
             verification: VerificationResult = verifier.verify(
                 code,
                 sandbox=sandbox,
+                llm_judge_result=judge_result,
                 transcript=runner_result.raw_output,
                 extra_evidence=extra_evidence,
             )
 
         return _make_result(
             story_id, runner_name, context, rep, runner_result, verification,
+            judge_model=getattr(judge, "model", None),
         )
 
     finally:
@@ -159,6 +202,7 @@ def _make_result(
     runner_result: RunnerResult,
     verification: VerificationResult | None,
     error: str | None = None,
+    judge_model: str | None = None,
 ) -> dict:
     result = {
         "story": story_id,
@@ -166,6 +210,7 @@ def _make_result(
         "context_level": context.value,
         "rep": rep,
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "environment": collect_environment(judge_model),
         "runner_elapsed_seconds": runner_result.elapsed_seconds,
         "tokens_in": runner_result.tokens_in,
         "tokens_out": runner_result.tokens_out,
@@ -202,7 +247,17 @@ def _make_result(
     return result
 
 
-def run_spike(model: str | None = None, reps: int = 10):
+def _make_judge(judge_model: str | None):
+    """Build the optional cross-model LLM judge; None keeps the default run
+    static+functional only."""
+    if not judge_model:
+        return None
+    from eval.graders.llm_judge import LLMJudge
+
+    return LLMJudge(model=judge_model)
+
+
+def run_spike(model: str | None = None, reps: int = 10, judge_model: str | None = None):
     """R0 spike: U1 x claude_code x {cold, skill, skill_mcp} x N reps (randomized order)."""
     contexts = [ContextLevel.COLD, ContextLevel.WITH_SKILL, ContextLevel.WITH_MCP]
     results = []
@@ -216,13 +271,15 @@ def run_spike(model: str | None = None, reps: int = 10):
     print(f"Model: {model or 'default'}")
     print("=" * 60, flush=True)
 
+    judge = _make_judge(judge_model)
+
     # Randomize trial order to prevent systematic bias
     trials = [(ctx, rep) for ctx in contexts for rep in range(1, reps + 1)]
     random.shuffle(trials)
 
     for i, (context, rep) in enumerate(trials, 1):
         print(f"\n[{i}/{len(trials)}] ", end="", flush=True)
-        result = run_single_cell("u1", "claude_code", context, rep, model=model, run_dir=run_dir)
+        result = run_single_cell("u1", "claude_code", context, rep, model=model, run_dir=run_dir, judge=judge)
         results.append(result)
         status = "PASS" if result.get("pass") else "FAIL"
         infra = " [INFRA]" if result.get("is_infra_error") else ""
@@ -241,10 +298,12 @@ def run_matrix(
     contexts: list[str],
     reps: int,
     model: str | None = None,
+    judge_model: str | None = None,
 ):
     """Run arbitrary subset of the eval matrix with randomized trial order."""
     results = []
     context_levels = [ContextLevel(c) for c in contexts]
+    judge = _make_judge(judge_model)
 
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = RESULTS_DIR / f"matrix_{ts}"
@@ -262,7 +321,7 @@ def run_matrix(
 
     for i, (story_id, runner_name, context, rep) in enumerate(trials, 1):
         print(f"[{i}/{len(trials)}] ", end="", flush=True)
-        result = run_single_cell(story_id, runner_name, context, rep, model=model, run_dir=run_dir)
+        result = run_single_cell(story_id, runner_name, context, rep, model=model, run_dir=run_dir, judge=judge)
         results.append(result)
         status = "PASS" if result.get("pass") else "FAIL"
         infra = " [INFRA]" if result.get("is_infra_error") else ""
@@ -303,7 +362,7 @@ def print_summary(results: list[dict]):
 
     # Capability metrics (excluding infra errors)
     print(f"\n--- Capability Metrics (infra errors excluded) ---")
-    header = f"{'Context':<12} {'Pass Rate':<22} {'Idiom':<18} {'Halluc':>8} {'n':>4}"
+    header = f"{'Context':<12} {'Pass Rate':<22} {'Idiom':<18} {'Halluc':>8} {'Func':>7} {'n':>4}"
     print(header)
     print("-" * len(header))
 
@@ -329,9 +388,15 @@ def print_summary(results: list[dict]):
 
         avg_halluc = sum(r.get("hallucination_count", 0) for r in valid) / n
 
+        # Functional coverage: how many cells actually executed the sandbox
+        # check vs skipped it (e.g. pxt CLI missing). A skipped check is not a
+        # failure -- it silently reweights the composite to static+LLM.
+        func_ran = sum(1 for r in valid if r.get("functional_pass") is not None)
+        func_str = f"{func_ran}/{n}"
+
         pass_str = f"{ci.point*100:.0f}% [{ci.lower*100:.0f}-{ci.upper*100:.0f}%]"
         idiom_str = f"{idiom_ci.point:.1f} [{idiom_ci.lower:.1f}-{idiom_ci.upper:.1f}]" if idiom_ci else "N/A"
-        print(f"{ctx:<12} {pass_str:<22} {idiom_str:<18} {avg_halluc:>7.1f} {n:>4}")
+        print(f"{ctx:<12} {pass_str:<22} {idiom_str:<18} {avg_halluc:>7.1f} {func_str:>7} {n:>4}")
 
         context_stats[ctx] = {
             "n": n,
@@ -340,6 +405,9 @@ def print_summary(results: list[dict]):
             "idiom_ci": idiom_ci,
             "pass_rate": successes / n if n else 0,
         }
+
+    print("  (Func = cells where the sandbox functional check actually ran;"
+          " skipped checks reweight to static+LLM)")
 
     # Consistency metrics
     print(f"\n--- Consistency (pass^k) ---")
@@ -411,12 +479,15 @@ def main():
     parser.add_argument("--context", nargs="+", choices=["cold", "skill", "skill_mcp", "plugin"], default=["cold", "skill"])
     parser.add_argument("--reps", type=int, default=10, help="Repetitions per cell (default: 10)")
     parser.add_argument("--model", type=str, default=None, help="Model to use (e.g., claude-sonnet-4-20250514)")
+    parser.add_argument("--judge-model", type=str, default=None,
+                        help="Enable the cross-model LLM judge (e.g., gpt-4o); default off")
     args = parser.parse_args()
 
     if args.spike:
-        run_spike(model=args.model, reps=args.reps)
+        run_spike(model=args.model, reps=args.reps, judge_model=args.judge_model)
     else:
-        run_matrix(args.story, args.runner, args.context, args.reps, model=args.model)
+        run_matrix(args.story, args.runner, args.context, args.reps, model=args.model,
+                   judge_model=args.judge_model)
 
 
 if __name__ == "__main__":

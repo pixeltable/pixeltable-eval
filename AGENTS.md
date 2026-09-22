@@ -14,6 +14,8 @@ This repo is an eval harness that measures how well AI coding agents write Pixel
 - `eval/environments/` — Context level setup (cold, skill, skill+MCP, plugin)
 - `eval/orchestrator.py` — Matrix runner and result collection
 - `evals/` — Convex-style eval definitions (TASK.txt + grader.py per eval)
+- `tests/` — Harness self-tests: static-layer unit tests, answer/ canary,
+  and a live u3 service boot; run `pytest` (`-m "not slow"` for fast only)
 - `fixtures/` — Test data (PDFs, audio, video) for stories
 - `results/` — JSON output from runs (git-ignored)
 - `stress-test-project/` — Hand-maintained suite of 17 Pixeltable apps exercising the

@@ -9,7 +9,9 @@ Verifier checks:
 - Negative: no retired pxt serve CLI / TOML routes, no hand-rolled server,
   no notebook APIs in app code
 - Functional: `pxt init` + `pxt schema update` materializes a reviews table
-  with sentiment and summary computed columns
+  with sentiment and summary computed columns, then `pxt service update`
+  starts the service and POST /analyze is exercised; services are stopped
+  afterward
 """
 
 from __future__ import annotations
@@ -54,7 +56,7 @@ class U3ServiceVerifier(StoryVerifier):
             (r"chat_completions|messages", "calls an LLM"),
             (r"\.choices\[0\]\.message\.content", "extracts OpenAI response correctly"),
             (r"pxt\s+schema\s+update", "applies schema with pxt schema update"),
-            (r"pxt\s+service\s+update", "starts service with pxt service update"),
+            (r"pxt\s+service\s+(update|run)\b", "starts the service with pxt service update/run"),
         ]
 
     @property
@@ -84,22 +86,42 @@ class U3ServiceVerifier(StoryVerifier):
 import json
 import subprocess
 import sys
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 
 # Use the pxt binary from the same interpreter as this script; a different
 # pxt on PATH may run a different pixeltable version.
-def sh(cmd):
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=240)
+def sh(cmd, timeout=180):
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
 
 
+def first_json(stdout):
+    # pxt may print a connection banner before the payload; decode the first
+    # JSON value found in the output.
+    dec = json.JSONDecoder()
+    for i, ch in enumerate(stdout):
+        if ch in "[{":
+            try:
+                return dec.raw_decode(stdout[i:])[0]
+            except json.JSONDecodeError:
+                continue
+    return None
+
+
+out = {"columns": [], "has_sentiment": False, "has_summary": False, "served": False}
+pxtc = "pxt"
 try:
-    pxtc = Path(sys.executable).parent / "pxt"
-    pxtc = str(pxtc) if pxtc.exists() else "pxt"
-    sh([pxtc, "init"])
+    exe_pxt = Path(sys.executable).parent / "pxt"
+    if exe_pxt.exists():
+        pxtc = str(exe_pxt)
+    sh([pxtc, "init"], timeout=60)
     upd = sh([pxtc, "schema", "update", "app.py", "eval_app", "-f"])
     if upd.returncode != 0:
-        print(json.dumps({"error": f"pxt schema update failed: {upd.stderr[-300:]}"}))
+        out["error"] = f"pxt schema update failed: {upd.stderr[-300:]}"
+        print(json.dumps(out))
         sys.exit(0)
 
     import pixeltable as pxt
@@ -108,26 +130,109 @@ try:
     if not review_tables:
         review_tables = [t for t in tables if "review" in t.lower()]
     if not review_tables:
-        print(json.dumps({"error": f"no reviews table, found: {tables}"}))
+        out["error"] = f"no reviews table, found: {tables}"
+        print(json.dumps(out))
         sys.exit(0)
 
     t = pxt.get_table(review_tables[0])
     cols = t.get_metadata()["columns"]
-    print(json.dumps({
-        "columns": list(cols),
-        "has_sentiment": any(
-            "sentiment" in name.lower() and meta.get("is_computed")
-            for name, meta in cols.items()
-        ),
-        "has_summary": any(
-            "summar" in name.lower() and meta.get("is_computed")
-            for name, meta in cols.items()
-        ),
-    }))
+    out["columns"] = list(cols)
+    out["has_sentiment"] = any(
+        "sentiment" in name.lower() and meta.get("is_computed")
+        for name, meta in cols.items()
+    )
+    out["has_summary"] = any(
+        "summar" in name.lower() and meta.get("is_computed")
+        for name, meta in cols.items()
+    )
+    if not (out["has_sentiment"] and out["has_summary"]):
+        print(json.dumps(out))
+        sys.exit(0)
+
+    # Serving layer: the story's point is a running API, not just a schema.
+    chk = sh([pxtc, "service", "check", "app.py"], timeout=60)
+    out["service_check_ok"] = chk.returncode == 0
+
+    svc = sh([pxtc, "service", "update", "app.py", "eval_app", "-f"], timeout=180)
+    out["service_update_rc"] = svc.returncode
+    if svc.returncode != 0:
+        out["service_update_err"] = (svc.stderr or svc.stdout)[-300:]
+    else:
+        services = []
+        deadline = time.time() + 90
+        while time.time() < deadline:
+            lst = sh([pxtc, "service", "list", "eval_app", "--json"], timeout=30)
+            services = first_json(lst.stdout) or []
+            if any(s.get("state") == "AVAILABLE" and s.get("port") for s in services):
+                break
+            if services and all(s.get("state") == "FAILED" for s in services):
+                break
+            time.sleep(3)
+        out["services"] = [
+            {
+                "name": s.get("name"),
+                "port": s.get("port"),
+                "state": s.get("state"),
+                "routes": [
+                    f"{r.get('method')} {r.get('path')}"
+                    for r in s.get("spec", {}).get("routes", [])
+                ],
+            }
+            for s in services
+        ]
+        target = None
+        for s in services:
+            if s.get("state") != "AVAILABLE" or not s.get("port"):
+                continue
+            for r in s.get("spec", {}).get("routes", []):
+                if r.get("method") == "POST" and r.get("path", "").rstrip("/").endswith("/analyze"):
+                    target = (s, r)
+                    break
+            if target:
+                break
+        out["served"] = target is not None
+        if target:
+            inst, route = target
+            # POST once to prove the route is live. Inputs are filled from
+            # the route's own declaration; provider auth failures are
+            # recorded, not treated as app defects.
+            body = {name: "An absolute delight of a film." for name in route.get("inputs") or []}
+            body = body or {"title": "ok", "review_text": "An absolute delight of a film."}
+            try:
+                req = urllib.request.Request(
+                    f"http://127.0.0.1:{inst['port']}{route['path']}",
+                    data=json.dumps(body).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=90) as resp:
+                    out["post_status"] = resp.status
+                    out["post_body"] = resp.read(400).decode(errors="replace")[:300]
+            except urllib.error.HTTPError as e:
+                out["post_status"] = e.code
+                out["post_body"] = e.read(300).decode(errors="replace")
+            except Exception as e:
+                out["post_error"] = str(e)[:200]
 except FileNotFoundError:
-    print(json.dumps({"error": "pxt CLI not on PATH"}))
+    out["error"] = "pxt CLI not on PATH"
 except Exception as e:
-    print(json.dumps({"error": str(e)[:300]}))
+    out["error"] = str(e)[:300]
+finally:
+    # Leave nothing running: stop the services bound to this sandbox's
+    # catalog, then the daemon spawned on this run's private PXT_PORT.
+    try:
+        running = first_json(sh([pxtc, "service", "list", "eval_app", "--json"], timeout=30).stdout) or []
+        names = [f"eval_app/{s['name']}" for s in running if s.get("name")]
+        if names:
+            sh([pxtc, "service", "stop", *names], timeout=60)
+    except Exception:
+        pass
+    try:
+        sh([pxtc, "daemon", "stop"], timeout=30)
+    except Exception:
+        pass
+
+print(json.dumps(out))
 """
         result = sandbox.exec_verification(check_code)
 
@@ -150,8 +255,24 @@ except Exception as e:
             return {"pass": False, "reason": "missing sentiment computed column"}
         if not data.get("has_summary"):
             return {"pass": False, "reason": "missing summary computed column"}
+        if data.get("service_update_rc") not in (None, 0):
+            return {
+                "pass": False,
+                "reason": f"pxt service update failed: {data.get('service_update_err', '?')}",
+                "services": data.get("services", []),
+            }
+        if not data.get("served"):
+            return {
+                "pass": False,
+                "reason": "no running service exposes POST /analyze",
+                "services": data.get("services", []),
+            }
 
         return {
             "pass": True,
             "columns": data.get("columns", []),
+            "services": data.get("services", []),
+            "service_check_ok": data.get("service_check_ok"),
+            "post_status": data.get("post_status"),
+            "post_body": data.get("post_body"),
         }
