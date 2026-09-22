@@ -10,3 +10,4 @@ results/*
 dist/
 node_modules/
 .cursor/
+*.db

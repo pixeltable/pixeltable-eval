@@ -1,4 +1,6 @@
-pixeltable[serve]==0.7.8
+# Hosted control plane passes --project-fingerprint, added after 0.7.8
+# (upstream f8deca257). Hosted images must build pixeltable from main.
+pixeltable[serve] @ git+https://github.com/pixeltable/pixeltable.git@b49ca1260
 openai
 spacy
 mistune
