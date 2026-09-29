@@ -20,16 +20,25 @@ class ContextLevel(str, Enum):
     WITH_PLUGIN = "plugin"
 
 
-def setup_environment(workdir: Path, context: ContextLevel, fixture_dir: Path | None = None):
-    """Configure a workspace directory for a specific context level."""
+def setup_environment(
+    workdir: Path,
+    context: ContextLevel,
+    fixture_dir: Path | None = None,
+    fixture_subdir: str = "docs",
+):
+    """Configure a workspace directory for a specific context level.
+
+    fixture_subdir controls where fixture files land: u1's task expects
+    ./docs, while eval fixtures (e.g. reviews.csv) sit at the workdir root.
+    """
     workdir.mkdir(parents=True, exist_ok=True)
 
     if fixture_dir and fixture_dir.exists():
-        docs_dir = workdir / "docs"
-        docs_dir.mkdir(exist_ok=True)
+        dest_dir = workdir / fixture_subdir
+        dest_dir.mkdir(exist_ok=True)
         for f in fixture_dir.iterdir():
             if f.is_file():
-                shutil.copy2(f, docs_dir / f.name)
+                shutil.copy2(f, dest_dir / f.name)
 
     if context == ContextLevel.COLD:
         _setup_cold(workdir)

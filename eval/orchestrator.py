@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from eval.environments.setup import ContextLevel, setup_environment
-from eval.loader import load_all_evals
+from eval.loader import EVALS_DIR, load_all_evals
 from eval.runners.base import RunnerResult
 from eval.runners.claude_code import ClaudeCodeRunner
 from eval.runners.cursor_sdk import CursorSdkRunner
@@ -124,6 +124,20 @@ _ENV_PACKAGES = [
 ]
 
 
+def _fixture_dir_for(story_id: str) -> tuple[Path | None, str]:
+    """Resolve fixture dir + destination subdir for a story/eval id.
+
+    Curated stories map through FIXTURES (u1 -> docs/). Evals use the
+    convention evals/<category>/<name>/fixtures/, copied to the workdir root.
+    """
+    if story_id in FIXTURES:
+        return FIXTURES[story_id], "docs"
+    cand = EVALS_DIR / story_id / "fixtures"
+    if cand.is_dir():
+        return cand, "."
+    return None, "docs"
+
+
 def collect_environment(judge_model: str | None = None) -> dict:
     """Resolved dependency versions for this run, recorded per result row so
     scores are attributable to a dep set (pixeltable is unbounded above)."""
@@ -158,13 +172,13 @@ def run_single_cell(
         runner_kwargs["model"] = model
     runner = RUNNERS[runner_name](**runner_kwargs)
     verifier = verifier_factory()
-    fixture_dir = FIXTURES.get(story_id)
+    fixture_dir, fixture_subdir = _fixture_dir_for(story_id)
 
     safe_id = story_id.replace("/", "_")
     workdir = Path(tempfile.mkdtemp(prefix=f"pxteval_{safe_id}_{context.value}_"))
 
     try:
-        setup_environment(workdir, context, fixture_dir)
+        setup_environment(workdir, context, fixture_dir, fixture_subdir)
 
         print(f"  Running {runner_name} | {context.value} | rep {rep} ...", flush=True)
         runner_result: RunnerResult = runner.run(prompt, workdir, timeout=600)
@@ -195,7 +209,9 @@ def run_single_cell(
             # Stories that opt out of execution (static-only grading) skip the
             # sandbox entirely: no embedded postgres boot, no flake surface.
             sandbox = (
-                stack.enter_context(PixeltableSandbox(fixture_dir=fixture_dir))
+                stack.enter_context(
+                    PixeltableSandbox(fixture_dir=fixture_dir, fixture_subdir=fixture_subdir)
+                )
                 if verifier.requires_sandbox
                 else None
             )

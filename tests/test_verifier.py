@@ -248,3 +248,17 @@ def test_registry_resolves_curated_and_eval_ids():
         resolve_stories(["u1"], name_filter="matches-nothing")
     with pytest.raises(SystemExit):
         resolve_stories(["nonexistent-category"])
+
+
+def test_eval_fixture_convention():
+    """evals/<id>/fixtures/ resolves flat; curated u1 keeps docs/."""
+    from eval.orchestrator import _fixture_dir_for
+
+    d, sub = _fixture_dir_for("004-idioms/no_pandas_store")
+    assert sub == "." and d and (d / "reviews.csv").exists()
+
+    d, sub = _fixture_dir_for("u1")
+    assert sub == "docs" and d and any(d.iterdir())
+
+    d, sub = _fixture_dir_for("001-rag/pdf_rag")
+    assert d is None

@@ -39,18 +39,23 @@ class SandboxResult:
 class PixeltableSandbox:
     """Fresh Pixeltable environment scoped to a single eval run."""
 
-    def __init__(self, fixture_dir: Path | str | None = None, timeout: int = 300):
+    def __init__(
+        self,
+        fixture_dir: Path | str | None = None,
+        timeout: int = 300,
+        fixture_subdir: str = "docs",
+    ):
         self.home = Path(tempfile.mkdtemp(prefix="pxteval_"))
         self.workdir = Path(tempfile.mkdtemp(prefix="pxtwork_"))
         self.fixture_dir = Path(fixture_dir) if fixture_dir else None
         self.timeout = timeout
 
         if self.fixture_dir and self.fixture_dir.exists():
-            docs_dir = self.workdir / "docs"
-            docs_dir.mkdir(exist_ok=True)
+            dest_dir = self.workdir / fixture_subdir
+            dest_dir.mkdir(exist_ok=True)
             for f in self.fixture_dir.iterdir():
                 if f.is_file():
-                    shutil.copy2(f, docs_dir / f.name)
+                    shutil.copy2(f, dest_dir / f.name)
 
         # Provider api keys live in ~/.pixeltable/config.toml; symlink it into
         # the sandbox home so generated code can call OpenAI etc. Symlink
