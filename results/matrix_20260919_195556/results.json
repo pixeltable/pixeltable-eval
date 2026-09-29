@@ -1,0 +1,60 @@
+[
+  {
+    "story": "u3",
+    "runner": "claude_code",
+    "context_level": "cold",
+    "rep": 1,
+    "timestamp": "2026-09-20T02:56:38.075671+00:00",
+    "runner_elapsed_seconds": 31.602705540999978,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [
+      "app.py"
+    ],
+    "is_infra_error": false,
+    "pass": true,
+    "score": 5.0,
+    "static_score": 5.0,
+    "static_pass": true,
+    "llm_score": null,
+    "functional_pass": true,
+    "idiomaticity": 2.2222222222222223,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pixeltable": true,
+      "defines a TableModel": true,
+      "uses FastAPIRouter": true,
+      "declares an insert route": true,
+      "exposes the /analyze endpoint": true,
+      "calls an LLM": true,
+      "extracts OpenAI response correctly": true,
+      "applies schema with pxt schema update": true,
+      "starts service with pxt service update": true
+    },
+    "negative_hits": {
+      "uses retired pxt serve CLI (does not exist)": false,
+      "writes TOML serve config (retired)": false,
+      "uses pxt.create_table in app code (use TableModel)": false,
+      "uses add_computed_column in app code (declare on the model)": false,
+      "runs the server manually (use pxt service update)": false,
+      "uses Flask/Django instead of FastAPIRouter": false,
+      "imports LangChain": false,
+      "uses pandas as working store": false,
+      "writes a TOML modules list (retired field)": false
+    },
+    "functional_details": {
+      "pass": true,
+      "columns": [
+        "title",
+        "review_text",
+        "sentiment",
+        "summary"
+      ]
+    },
+    "llm_details": {},
+    "sandbox_exit_code": 0,
+    "sandbox_stderr": ""
+  }
+]

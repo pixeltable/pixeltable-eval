@@ -1,0 +1,353 @@
+[
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "cold",
+    "rep": 1,
+    "timestamp": "2026-05-11T22:22:06.617157+00:00",
+    "runner_elapsed_seconds": 91.71995570929721,
+    "tokens_in": 90,
+    "tokens_out": 5845,
+    "turns": 11,
+    "files_created": [
+      "pdf_qa_app.py",
+      "setup.py",
+      "demo.py"
+    ],
+    "pass": false,
+    "static_pass": false,
+    "functional_pass": false,
+    "idiomaticity": 0.5,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": true,
+      "creates embedding index": false,
+      "uses similarity search": false,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": false,
+      "skipped": true
+    },
+    "sandbox_exit_code": 1,
+    "sandbox_stderr": "/Users/pjlb/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020\n  warnings.warn(\nTraceback (most recent call last):\n  File \"/var/folders/s4/0zdx499s6sv3_0jll6ccdbh00000gn/T/pxtwork_y7gbf56n/_eval_script.py\", line 9, in <module>\n    from pixeltable.functions import document_splitter, openai\nImportError: cannot"
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "cold",
+    "rep": 2,
+    "timestamp": "2026-05-11T22:26:10.306944+00:00",
+    "runner_elapsed_seconds": 240.82335487520322,
+    "tokens_in": 206,
+    "tokens_out": 14417,
+    "turns": 26,
+    "files_created": [
+      "simple_demo.py",
+      "demo_pdf_extraction.py",
+      "pdf_qa_app.py",
+      "setup.py"
+    ],
+    "pass": false,
+    "static_pass": false,
+    "functional_pass": false,
+    "idiomaticity": 1.0,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": false,
+      "creates embedding index": false,
+      "uses similarity search": false,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": false,
+      "skipped": true
+    },
+    "sandbox_exit_code": 1,
+    "sandbox_stderr": "/Users/pjlb/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020\n  warnings.warn(\nTraceback (most recent call last):\n  File \"/var/folders/s4/0zdx499s6sv3_0jll6ccdbh00000gn/T/pxtwork_yfqqw_95/_eval_script.py\", line 198, in setup_tables\n    self.docs_table = pxt.get_table(table_name)\n  File \"/Users/pjlb/Library/"
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "cold",
+    "rep": 3,
+    "timestamp": "2026-05-11T22:28:01.571029+00:00",
+    "runner_elapsed_seconds": 109.27603949978948,
+    "tokens_in": 82,
+    "tokens_out": 7145,
+    "turns": 10,
+    "files_created": [
+      "pdf_qa_app.py",
+      "setup.py",
+      "demo.py",
+      "test_app.py"
+    ],
+    "pass": false,
+    "static_pass": false,
+    "functional_pass": false,
+    "idiomaticity": 1.0,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": false,
+      "creates embedding index": false,
+      "uses similarity search": false,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": false,
+      "skipped": true
+    },
+    "sandbox_exit_code": 1,
+    "sandbox_stderr": "/Users/pjlb/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020\n  warnings.warn(\n"
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "skill",
+    "rep": 1,
+    "timestamp": "2026-05-11T22:30:11.713350+00:00",
+    "runner_elapsed_seconds": 128.06847879104316,
+    "tokens_in": 122,
+    "tokens_out": 7591,
+    "turns": 15,
+    "files_created": [
+      "run.py",
+      "pdf_qa_app.py",
+      "example_usage.py",
+      "test_system.py"
+    ],
+    "pass": false,
+    "static_pass": false,
+    "functional_pass": false,
+    "idiomaticity": 2.0,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": false,
+      "creates embedding index": false,
+      "uses similarity search": false,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": true
+    },
+    "functional_details": {
+      "pass": false,
+      "skipped": true
+    },
+    "sandbox_exit_code": 1,
+    "sandbox_stderr": "Traceback (most recent call last):\n  File \"/var/folders/s4/0zdx499s6sv3_0jll6ccdbh00000gn/T/pxtwork_5nti1w1r/_eval_script.py\", line 8, in <module>\n    from pdf_qa_app import PDFQuestionAnswerer\nModuleNotFoundError: No module named 'pdf_qa_app'\n"
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "skill",
+    "rep": 2,
+    "timestamp": "2026-05-11T22:35:13.226047+00:00",
+    "runner_elapsed_seconds": 300.0106052500196,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [],
+    "pass": false,
+    "error": "Timeout after 300s"
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "skill",
+    "rep": 3,
+    "timestamp": "2026-05-11T22:40:14.799866+00:00",
+    "runner_elapsed_seconds": 300.01067508384585,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [],
+    "pass": false,
+    "error": "Timeout after 300s"
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "skill_mcp",
+    "rep": 1,
+    "timestamp": "2026-05-11T22:42:32.724957+00:00",
+    "runner_elapsed_seconds": 134.039008166641,
+    "tokens_in": 84,
+    "tokens_out": 7994,
+    "turns": 11,
+    "files_created": [
+      "pdf_qa_app.py",
+      "simple_example.py",
+      "setup.py"
+    ],
+    "pass": false,
+    "static_pass": true,
+    "functional_pass": false,
+    "idiomaticity": 5.0,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": true,
+      "creates embedding index": true,
+      "uses similarity search": true,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": false,
+      "skipped": true
+    },
+    "sandbox_exit_code": 1,
+    "sandbox_stderr": "/Users/pjlb/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020\n  warnings.warn(\nTraceback (most recent call last):\n  File \"/var/folders/s4/0zdx499s6sv3_0jll6ccdbh00000gn/T/pxtwork_6t5u0jk4/_eval_script.py\", line 10, in <module>\n    from pixeltable.functions.document import document_splitter\nModuleNotFoundErr"
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "skill_mcp",
+    "rep": 2,
+    "timestamp": "2026-05-11T22:45:43.557329+00:00",
+    "runner_elapsed_seconds": 187.35290066571906,
+    "tokens_in": 92,
+    "tokens_out": 9882,
+    "turns": 12,
+    "files_created": [
+      "pdf_qa_app.py",
+      "demo.py",
+      "simple_pdf_qa.py"
+    ],
+    "pass": false,
+    "static_pass": true,
+    "functional_pass": false,
+    "idiomaticity": 5.0,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": true,
+      "creates embedding index": true,
+      "uses similarity search": true,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": false,
+      "skipped": true
+    },
+    "sandbox_exit_code": 1,
+    "sandbox_stderr": "/Users/pjlb/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020\n  warnings.warn(\nTraceback (most recent call last):\n  File \"/var/folders/s4/0zdx499s6sv3_0jll6ccdbh00000gn/T/pxtwork_1z13m1p9/_eval_script.py\", line 15, in <module>\n    from pixeltable.functions.document import document_splitter\nModuleNotFoundErr"
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "skill_mcp",
+    "rep": 3,
+    "timestamp": "2026-05-11T22:46:50.691682+00:00",
+    "runner_elapsed_seconds": 63.71129666734487,
+    "tokens_in": 36,
+    "tokens_out": 4002,
+    "turns": 6,
+    "files_created": [
+      "pdf_qa_app.py"
+    ],
+    "pass": false,
+    "static_pass": true,
+    "functional_pass": false,
+    "idiomaticity": 4.5,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": true,
+      "creates embedding index": true,
+      "uses similarity search": true,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": false,
+      "skipped": true
+    },
+    "sandbox_exit_code": 1,
+    "sandbox_stderr": "/Users/pjlb/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020\n  warnings.warn(\nTraceback (most recent call last):\n  File \"/var/folders/s4/0zdx499s6sv3_0jll6ccdbh00000gn/T/pxtwork_lu23dny5/_eval_script.py\", line 11, in <module>\n    from pixeltable.functions.document import document_splitter\nModuleNotFoundErr"
+  }
+]

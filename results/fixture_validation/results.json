@@ -1,0 +1,172 @@
+[
+  {
+    "story": "u3",
+    "runner": "fixture",
+    "context_level": "cold",
+    "rep": 1,
+    "timestamp": "2026-09-19T23:05:24.936198+00:00",
+    "runner_elapsed_seconds": 0.1,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [
+      "app.py"
+    ],
+    "is_infra_error": false,
+    "pass": true,
+    "score": 5.0,
+    "static_score": 5.0,
+    "static_pass": true,
+    "llm_score": null,
+    "functional_pass": true,
+    "idiomaticity": 2.2222222222222223,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pixeltable": true,
+      "defines a TableModel": true,
+      "uses FastAPIRouter": true,
+      "declares an insert route": true,
+      "exposes the /analyze endpoint": true,
+      "calls an LLM": true,
+      "extracts OpenAI response correctly": true,
+      "applies schema with pxt schema update": true,
+      "starts service with pxt service update": true
+    },
+    "negative_hits": {
+      "uses retired pxt serve CLI (does not exist)": false,
+      "writes TOML serve config (retired)": false,
+      "uses pxt.create_table in app code (use TableModel)": false,
+      "uses add_computed_column in app code (declare on the model)": false,
+      "runs the server manually (use pxt service update)": false,
+      "uses Flask/Django instead of FastAPIRouter": false,
+      "imports LangChain": false,
+      "uses pandas as working store": false,
+      "writes a TOML modules list (retired field)": false
+    },
+    "functional_details": {
+      "pass": true,
+      "columns": [
+        "title",
+        "review_text",
+        "sentiment",
+        "summary"
+      ]
+    },
+    "llm_details": {},
+    "sandbox_exit_code": 0,
+    "sandbox_stderr": ""
+  },
+  {
+    "story": "u2",
+    "runner": "fixture",
+    "context_level": "cold",
+    "rep": 1,
+    "timestamp": "2026-09-19T23:05:26.650346+00:00",
+    "runner_elapsed_seconds": 0.1,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [
+      "app.py"
+    ],
+    "is_infra_error": false,
+    "pass": true,
+    "score": 5.0,
+    "static_score": 5.0,
+    "static_pass": true,
+    "llm_score": null,
+    "functional_pass": null,
+    "idiomaticity": 2.7777777777777777,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "scaffolds via pixeltable-new or pxt init/example": true,
+      "installs dependencies with uv sync": true,
+      "defines TableModel classes": true,
+      "uses document_splitter for chunking": true,
+      "declares embedding index on the model": true,
+      "uses similarity search": true,
+      "defines a @pxt.query function": true,
+      "exposes the query via FastAPIRouter": true,
+      "applies schema with pxt schema update": true,
+      "starts the service with pxt service update": true
+    },
+    "negative_hits": {
+      "uses retired pxt serve CLI (does not exist)": false,
+      "writes TOML serve config (retired)": false,
+      "uses removed pixeltable-new flags": false,
+      "uses pxt.create_table in app code (use TableModel)": false,
+      "uses add_computed_column in app code (declare on the model)": false,
+      "uses add_embedding_index in app code (use __indexes__)": false,
+      "uses LangChain or a separate vector DB": false,
+      "uses Flask/Django instead of FastAPIRouter": false,
+      "runs the server manually (use pxt service update)": false
+    },
+    "functional_details": {
+      "pass": null,
+      "skipped": true,
+      "reason": "scaffolding is verified statically"
+    },
+    "llm_details": {},
+    "sandbox_exit_code": 0,
+    "sandbox_stderr": ""
+  },
+  {
+    "story": "u1",
+    "runner": "fixture",
+    "context_level": "cold",
+    "rep": 1,
+    "timestamp": "2026-09-19T23:05:35.365205+00:00",
+    "runner_elapsed_seconds": 0.1,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [
+      "app.py"
+    ],
+    "is_infra_error": false,
+    "pass": true,
+    "score": 5.0,
+    "static_score": 5.0,
+    "static_pass": true,
+    "llm_score": null,
+    "functional_pass": true,
+    "idiomaticity": 2.2222222222222223,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": true,
+      "creates embedding index": true,
+      "uses similarity search": true,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": true,
+      "chunk_count": 3,
+      "columns": [
+        "document"
+      ],
+      "tables_found": [
+        "rag/docs",
+        "rag/qa",
+        "rag/chunks"
+      ]
+    },
+    "llm_details": {},
+    "sandbox_exit_code": 0,
+    "sandbox_stderr": "/var/folders/s4/0zdx499s6sv3_0jll6ccdbh00000gn/T/pxtwork_fqmh1b1w/_eval_script.py:22: DeprecationWarning: Use of similarity() without specifying an explicit modality is deprecated -- since version 0.5.7. Please use one of the following instead:\n  .similarity(string=...)\n  .similarity(image=...)\n  .similarity(audio=...)\n  .similarity(video=...)\n  .similarity(document=...)\n  .similarity(vector=...)\n  sim = chunks.text.similarity(question)\n"
+  }
+]

@@ -144,6 +144,22 @@ def cmd_status(args):
                 print(f"    {ctx}/rep{rep}: score={score:.1f} {err or 'below threshold'}")
 
 
+def cmd_publish(args):
+    """Render a run's results to RESULTS.md for committing to the repo."""
+    from pathlib import Path
+
+    from eval.publish import publish
+
+    run = None
+    if args.run:
+        p = Path(args.run)
+        run = p if p.name == "results.json" else p / "results.json"
+        if not run.exists():
+            run = Path("results") / args.run / "results.json"
+    out = publish(run)
+    print(f"Wrote {out}; commit it plus the run's results.json.")
+
+
 def cmd_interactive(args):
     """Interactive menu."""
     evals = load_all_evals()
@@ -187,6 +203,11 @@ def main():
     status_parser = subparsers.add_parser("status", help="Show last run results")
     status_parser.add_argument("--failed", action="store_true", help="Show only failures")
 
+    pub_parser = subparsers.add_parser(
+        "publish", help="Render a run's results.json to RESULTS.md for committing")
+    pub_parser.add_argument("--run", type=str, default=None,
+                            help="results/<run> name or results.json path; default: latest")
+
     args = parser.parse_args()
 
     if args.command == "list":
@@ -195,6 +216,8 @@ def main():
         cmd_run(args)
     elif args.command == "status":
         cmd_status(args)
+    elif args.command == "publish":
+        cmd_publish(args)
     else:
         cmd_interactive(args)
 
