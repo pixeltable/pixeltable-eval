@@ -208,6 +208,11 @@ def classify_infra_error(error: str | None) -> bool:
         "api_key not set",
         "no api key",
         "missing api key",
+        # Quota/billing: the runner could not run at all.
+        "spend limit",
+        "usage-credits",
+        "session limit resets",
+        "credit balance",
     ]
     error_lower = error.lower()
     return any(marker.lower() in error_lower for marker in infra_markers)
