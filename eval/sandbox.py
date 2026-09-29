@@ -67,6 +67,16 @@ class PixeltableSandbox:
             except OSError:
                 pass
 
+        # Provider api keys live in ~/.pixeltable/config.toml; symlink it into
+        # the sandbox home so generated code can call OpenAI etc. Symlink
+        # rather than copy so secrets are not duplicated on disk.
+        user_cfg = Path.home() / ".pixeltable" / "config.toml"
+        if user_cfg.exists():
+            try:
+                (self.home / "config.toml").symlink_to(user_cfg)
+            except OSError:
+                pass
+
     def exec_code(self, code: str) -> SandboxResult:
         """Execute a Python code string in an isolated subprocess."""
         script = self.workdir / "_eval_script.py"
