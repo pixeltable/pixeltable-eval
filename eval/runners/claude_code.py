@@ -34,7 +34,7 @@ class ClaudeCodeRunner(BaseRunner):
         cmd = [
             "claude",
             "--print",
-            "--output-format", "text",
+            "--output-format", "json",
             "--model", self.model,
             "--max-turns", str(self.max_turns),
             "--allowedTools", "Read,Write,Edit,Bash,WebSearch,WebFetch",
@@ -74,18 +74,39 @@ class ClaudeCodeRunner(BaseRunner):
                 elapsed_seconds=0,
             )
 
-        raw = proc.stdout
+        # --output-format json wraps the result in an envelope carrying
+        # usage and cost; fall back to treating stdout as plain text if the
+        # envelope shape ever changes.
+        envelope = None
+        try:
+            parsed = json.loads(proc.stdout)
+            if isinstance(parsed, dict):
+                envelope = parsed
+        except json.JSONDecodeError:
+            pass
+
+        raw = envelope.get("result", "") if envelope else proc.stdout
+        if not isinstance(raw, str):
+            raw = proc.stdout
+        usage = envelope.get("usage") or {} if envelope else {}
         files_created = collect_created_files(workdir)
         code = self._extract_code(raw, files_created)
+
+        error = proc.stderr[:500] if proc.returncode != 0 else None
+        if envelope and envelope.get("is_error"):
+            error = error or str(envelope.get("result", ""))[:500]
 
         return RunnerResult(
             runner_name=self.name,
             raw_output=raw,
             extracted_code=code,
             files_created=files_created,
-            turns=self._count_turns(raw),
+            turns=max(1, int(envelope.get("num_turns", 1))) if envelope else self._count_turns(raw),
+            tokens_in=int(usage.get("input_tokens", 0)) + int(usage.get("cache_read_input_tokens", 0)),
+            tokens_out=int(usage.get("output_tokens", 0)),
+            cost_usd=float(envelope.get("total_cost_usd", 0.0)) if envelope else 0.0,
             elapsed_seconds=elapsed,
-            error=proc.stderr[:500] if proc.returncode != 0 else None,
+            error=error,
         )
 
     def _build_env(self, workdir: Path) -> dict:

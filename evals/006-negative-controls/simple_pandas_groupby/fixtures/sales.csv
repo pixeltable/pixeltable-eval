@@ -1,0 +1,6 @@
+date,product,region,amount,quantity
+2026-01-05,Widget A,North,120.50,3
+2026-01-06,Widget B,South,80.00,2
+2026-01-07,Widget A,North,240.25,6
+2026-01-08,Widget C,East,55.75,1
+2026-01-09,Widget B,West,199.99,4

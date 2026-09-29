@@ -1,0 +1,14 @@
+Build a Pixeltable-powered REST API that manages a product catalog.
+
+Requirements (each step builds on the previous):
+- Write app.py using TableModel (pxt.model_base()): a table 'products' with columns sku (pxt.String), name (pxt.String), price (pxt.Float)
+- Add a computed column 'slug' on that model, derived from name via a @pxt.udf (lowercase, spaces replaced with hyphens)
+- With a FastAPIRouter (from pixeltable.serving), expose on the products table, in this order:
+  1. an insert route at POST /products taking sku, name, price and returning sku and slug
+  2. a query route at GET /product that takes a sku and returns the matching row's name, price, and slug
+  3. a delete route at POST /products/delete that removes the row the query route returned
+- The service must start with the pxt CLI (pxt schema update + pxt service update), not a hand-rolled server
+
+Files to create:
+- app.py (TableModel + UDF + FastAPIRouter definitions)
+- Show the commands to apply the schema and start the service

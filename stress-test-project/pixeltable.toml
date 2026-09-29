@@ -9,3 +9,7 @@
 
 [[pixeltable.database]]
 name = 'pxt://pixeltable:new-db'
+
+# Scratch hosted database for cloud deploy tests (services + secrets).
+[[pixeltable.database]]
+name = 'pxt://pixeltable:devin-cloud'

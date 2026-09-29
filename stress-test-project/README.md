@@ -31,6 +31,7 @@ stress-test-project/
 | data | sales_data, customers, inventory | arithmetic operators, `@pxt.udf` classifiers + guards, chat |
 | search | knowledge_base + kb_chunks, faq, products | `pxt.EmbeddingIndex` with `embeddings.using(...)`, `.similarity()` query routes |
 | realtime | sensor_data, network_events, user_activity | arithmetic, `string.len`, UDFs, chat |
+| export | products | `export_sql` dual-write to an external SQL db, `one_row` query, `return_fileresponse` download, plain `FastAPI` app object, `EXPORT_DB_URL` secret |
 
 ## Verified API notes (0.7.8)
 
@@ -51,6 +52,13 @@ Works:
   Iterator outputs (e.g. `text`) are referenceable in the class body.
 - `pxtf.image.width/height/get_metadata`, `pxtf.video.get_duration`,
   `pxtf.string.len`, plain `* / + -` arithmetic on columns, `@pxt.udf`.
+- `export_sql=SqlExport(db_connect='sqlite:///file.db', table='t')` on an
+  insert route dual-writes each row's `outputs` columns; the target table
+  must already exist. `one_row=True` returns the row object instead of
+  `{"rows": [...]}`. `return_fileresponse=True` on a query route serves the
+  media column as a file download. A bare `fastapi.FastAPI` object serves
+  as the service when it includes the router (`app.include_router(router)`);
+  the service is then named after the module, not the router.
 
 Does not exist / needs extra deps:
 - `pxtf.math.multiply/divide/add`, `pxtf.string.if_else` - use operators and UDFs.
@@ -105,6 +113,10 @@ dynamically):
 - `stress_search`: POST /knowledge, /faq, /products (insert);
   POST /knowledge/search, /faq/search, /products/search (query)
 - `stress_realtime`: POST /sensors, /network, /activity
+- `stress_export/app`: POST /products (also exports the row to the SQL db
+  named by `EXPORT_DB_URL`, default `apps/export/export.db` via sqlite),
+  GET /product?sku= (single object), GET /thumb?sku= (image file),
+  GET /healthz and GET /export-status (hand-written routes)
 
 ## Inserting data
 
@@ -198,7 +210,7 @@ Verified live: 4 frames from `num_frames=4`; 3 segments from `duration=30,overla
 - **`document_splitter(separators='paragraph')` does not support PDF** - insert fails atomically with `UNSUPPORTED_OPERATION` (no base row, no error cells, whole insert rolls back). For PDF use `'page'`, `'token_limit'`, or `'char_limit'` (the latter two need `limit=`). `.md`/`.txt` paragraph splitting works.
 - **Changing a route's `inputs` is destructive**: `pxt service update` reports "route will be replaced: inputs changed [destructive]" and requires `--allow-destructive`.
 - **A `@pxt.query` call returns an expression, not a result set**: `search_chunks(q).collect()` resolves `collect` as a JsonPath and 400s. Query functions are for routes and computed columns; for ad-hoc execution write the table query inline (`chunks.order_by(sim)...collect()`).
-- **`FastAPIRouter` needs `fastapi` (and `uvicorn` to serve) installed**: the import itself raises `ImportError: pixeltable.serving.FastAPIRouter requires fastapi` — they are not pixeltable dependencies.
+- **`FastAPIRouter` needs `fastapi` (and `uvicorn` to serve) installed**: the import itself raises `ImportError: pixeltable.serving.FastAPIRouter requires fastapi` — they are not pixeltable dependencies. Routes with `uploadfile_inputs` additionally need `python-multipart` at app definition time (`RuntimeError: Form data requires "python-multipart"`); `pixeltable[serve]` installs all three via `fastapi[standard]`.
 - **`embeddings(model=...)` does not bind parameters**: in 0.7.8 the signature is `(input, model, model_kwargs)`, so call sites must use `embeddings.using(model=...)`; the bare call errors `missing a required argument: 'input'`.
 
 ## Round 3 (2026-09-18): full live pass, all 17 apps
@@ -224,9 +236,12 @@ Zero error cells across all 38 tables/views afterward.
 - Daemon port isolation: `PXT_PORT=<port>` runs an independent daemon with its own pidfile. Useful when another project's pxt daemon (e.g. pixelbot's venv) holds the default 22089.
 
 Cloud gotchas hit:
-- `requirements.txt` must include `pixeltable==<version>` itself: the image
-  build treats it as the full dep set; without it pods crash with
-  `ModuleNotFoundError: No module named 'pixeltable'`. Same for the spaCy
+- `requirements.txt` must include pixeltable itself, pinned as
+  `pixeltable[serve]==<version>`: the image build treats it as the full dep
+  set. Without pixeltable pods crash with `ModuleNotFoundError`; without
+  the `serve` extra FastAPIRouter imports fail (no fastapi), services have
+  no uvicorn, and `uploadfile_inputs` routes lack python-multipart. Same
+  for the spaCy
   model: `string_splitter('sentence')`/`document_splitter` load
   `en_core_web_sm` lazily at first split (schema/view creation succeeds
   without it; inserts then fail), and `spacy download` cannot run in the
@@ -244,3 +259,34 @@ Cloud gotchas hit:
   schema, crashing every command on a duplicate `lock_dummy` migration.
   Fixed by setting `systeminfo.md->>'schema_version'` to the real version via
   the unix socket at `~/.pixeltable/pgdata/.s.PGSQL.5432`.
+
+## Cloud round 3 (2026-09-22): export app on `pxt://pixeltable:devin-cloud`
+
+Service URL `https://pixeltable-devin-cloud.svc.pxt.run/app`; verified live:
+`/healthz`, `/export-status`, `POST /products` (computed slug + SQL export),
+`/product?sku=` (one_row), `/thumb?sku=` (128px JPEG). `pxt count` on the
+hosted table matches the export target's row count.
+
+- **Runtime/control-plane skew**: the deployed control plane invokes
+  `pod_runner` with `--project-fingerprint` (pixeltable #1640, post-0.7.8).
+  Released 0.7.8 rejects it, so every hosted service CrashLoopBackOffs.
+  requirements.txt is authoritative for pixeltable in the image build, so the
+  fix is a git pin (`pixeltable[serve] @ git+...@b49ca1260`), then
+  `pxt db update` to rebuild (~25 min) and `pxt service update` to roll the
+  service onto it. Revert to `==` once a release carries the flag.
+- **Secrets**: `pxt secret set pxt://org:db KEY=VALUE` injects KEY as a plain
+  env var at service start; the app reads `os.environ['EXPORT_DB_URL']`.
+  `pxt service restart` picks up changed secrets. `SqlExport.display_dict()`
+  digests `db_connect`, so credentials never appear in service metadata.
+  `export_sql` works the same against any SQLAlchemy URL
+  (`postgresql+psycopg://user:pw@host/db`); the demo used in-pod sqlite.
+- **HTTP/2 to svc.pxt.run drops the connection**; use `curl --http1.1`.
+  Unauthenticated requests get a clean nginx 401 either way.
+- The local daemon (0.7.8) intermittently closes hosted `db`/`service`
+  requests mid-flight (`RemoteDisconnected`); the request usually still
+  applies server-side. Poll `pxt service list` instead of trusting exit codes.
+- `pxt service update` rejects `pxt://local:` targets (`401 Organization not
+  found`): a localproxy database cannot host services.
+- Loose files ship in the project archive: `apps/export/export.db` was
+  uploaded with the project. Use `exclude` in the `[[pixeltable.database]]`
+  entry to keep artifacts out.

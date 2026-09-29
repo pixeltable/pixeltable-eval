@@ -1,19 +1,20 @@
 """
-Grader for pxt_service eval.
+Grader for crud_service eval.
 
-Checks that the agent declares the pipeline as a TableModel with
-FastAPIRouter routes and starts it with the pxt CLI, instead of reaching
-for the retired pxt serve CLI / TOML routes or a hand-rolled server.
+Mirrors the u4_crud_service story patterns: TableModel + UDF computed
+column + insert/query/delete routes driven by the pxt CLI.
 """
 
 POSITIVE_PATTERNS = [
     (r"import pixeltable|from pixeltable", "uses pixeltable"),
     (r"TableModel|model_base\s*\(", "defines a TableModel"),
+    (r"@pxt\.udf\b", "defines a UDF for the computed slug"),
+    (r"slug", "declares the slug computed column"),
     (r"FastAPIRouter|from pixeltable\.serving", "uses FastAPIRouter"),
-    (r"insert_route\s*\(", "declares an insert route"),
-    (r"path\s*=\s*['\"]/analyze['\"]", "exposes the /analyze endpoint"),
-    (r"chat_completions|messages", "calls an LLM"),
-    (r"\.choices\[0\]\.message\.content", "extracts OpenAI response correctly"),
+    (r"add_insert_route|insert_route\s*\(", "declares an insert route"),
+    (r"['\"]/products?['\"]", "exposes the /products path"),
+    (r"add_query_route|query_route\s*\(|@pxt\.query\b", "declares a query route"),
+    (r"add_delete_route|delete_route\s*\(", "declares a delete route"),
     (r"pxt\s+schema\s+update", "applies schema with pxt schema update"),
     (r"pxt\s+service\s+(update|run)\b", "starts the service with pxt service update/run"),
 ]
@@ -28,5 +29,6 @@ NEGATIVE_PATTERNS = [
     (r"from flask\s+import|from django", "uses Flask/Django instead of FastAPIRouter"),
     (r"from langchain", "imports LangChain"),
     (r"import pandas|from pandas", "uses pandas as working store"),
+    (r"sqlite3|psycopg2", "hand-rolls SQL storage instead of a table"),
     (r"modules\s*=\s*\[", "writes a TOML modules list (retired field)"),
 ]

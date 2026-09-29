@@ -38,6 +38,11 @@ PROMPT = (
 
 class U2ScaffoldingVerifier(StoryVerifier):
 
+    # Scaffolding is verified statically; executing the generated app.py
+    # would penalize valid model declarations (e.g. forward refs) whose
+    # real check is whether the agent scaffolded and applied correctly.
+    requires_sandbox = False
+
     @property
     def story_id(self) -> str:
         return "u2_scaffolding"
@@ -55,7 +60,7 @@ class U2ScaffoldingVerifier(StoryVerifier):
             (r"@pxt\.query\b", "defines a @pxt.query function"),
             (r"FastAPIRouter|pixeltable\.serving|add_query_route", "exposes the query via FastAPIRouter"),
             (r"pxt\s+schema\s+update", "applies schema with pxt schema update"),
-            (r"pxt\s+service\s+update", "starts the service with pxt service update"),
+            (r"pxt\s+service\s+(update|run)\b", "starts the service with pxt service update/run"),
         ]
 
     @property

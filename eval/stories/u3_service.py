@@ -9,7 +9,9 @@ Verifier checks:
 - Negative: no retired pxt serve CLI / TOML routes, no hand-rolled server,
   no notebook APIs in app code
 - Functional: `pxt init` + `pxt schema update` materializes a reviews table
-  with sentiment and summary computed columns
+  with sentiment and summary computed columns, then `pxt service update`
+  starts the service and POST /analyze is exercised; services are stopped
+  afterward
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from __future__ import annotations
 import json
 
 from eval.sandbox import PixeltableSandbox
+from eval.stories._service_check import SERVICE_CHECK_PREAMBLE
 from eval.verifier import StoryVerifier
 
 
@@ -54,7 +57,7 @@ class U3ServiceVerifier(StoryVerifier):
             (r"chat_completions|messages", "calls an LLM"),
             (r"\.choices\[0\]\.message\.content", "extracts OpenAI response correctly"),
             (r"pxt\s+schema\s+update", "applies schema with pxt schema update"),
-            (r"pxt\s+service\s+update", "starts service with pxt service update"),
+            (r"pxt\s+service\s+(update|run)\b", "starts the service with pxt service update/run"),
         ]
 
     @property
@@ -80,26 +83,16 @@ class U3ServiceVerifier(StoryVerifier):
             return {"pass": False, "reason": "no generated file to apply"}
         (sandbox.workdir / "app.py").write_text(script.read_text())
 
-        check_code = """\
-import json
-import subprocess
-import sys
-from pathlib import Path
+        check_code = SERVICE_CHECK_PREAMBLE + '''\
 
-
-# Use the pxt binary from the same interpreter as this script; a different
-# pxt on PATH may run a different pixeltable version.
-def sh(cmd):
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=240)
-
-
+out = {"columns": [], "has_sentiment": False, "has_summary": False, "served": False}
+pxtc = pxt_bin()
 try:
-    pxtc = Path(sys.executable).parent / "pxt"
-    pxtc = str(pxtc) if pxtc.exists() else "pxt"
-    sh([pxtc, "init"])
+    sh([pxtc, "init"], timeout=60)
     upd = sh([pxtc, "schema", "update", "app.py", "eval_app", "-f"])
     if upd.returncode != 0:
-        print(json.dumps({"error": f"pxt schema update failed: {upd.stderr[-300:]}"}))
+        out["error"] = f"pxt schema update failed: {upd.stderr[-300:]}"
+        print(json.dumps(out))
         sys.exit(0)
 
     import pixeltable as pxt
@@ -108,27 +101,66 @@ try:
     if not review_tables:
         review_tables = [t for t in tables if "review" in t.lower()]
     if not review_tables:
-        print(json.dumps({"error": f"no reviews table, found: {tables}"}))
+        out["error"] = f"no reviews table, found: {tables}"
+        print(json.dumps(out))
         sys.exit(0)
 
     t = pxt.get_table(review_tables[0])
     cols = t.get_metadata()["columns"]
-    print(json.dumps({
-        "columns": list(cols),
-        "has_sentiment": any(
-            "sentiment" in name.lower() and meta.get("is_computed")
-            for name, meta in cols.items()
-        ),
-        "has_summary": any(
-            "summar" in name.lower() and meta.get("is_computed")
-            for name, meta in cols.items()
-        ),
-    }))
+    out["columns"] = list(cols)
+    out["has_sentiment"] = any(
+        "sentiment" in name.lower() and meta.get("is_computed")
+        for name, meta in cols.items()
+    )
+    out["has_summary"] = any(
+        "summar" in name.lower() and meta.get("is_computed")
+        for name, meta in cols.items()
+    )
+    if not (out["has_sentiment"] and out["has_summary"]):
+        print(json.dumps(out))
+        sys.exit(0)
+
+    # Serving layer: the story's point is a running API, not just a schema.
+    chk = sh([pxtc, "service", "check", "app.py"], timeout=60)
+    out["service_check_ok"] = chk.returncode == 0
+
+    svc = sh([pxtc, "service", "update", "app.py", "eval_app", "-f"], timeout=180)
+    out["service_update_rc"] = svc.returncode
+    if svc.returncode != 0:
+        out["service_update_err"] = (svc.stderr or svc.stdout)[-300:]
+    else:
+        services = wait_available(pxtc, "eval_app")
+        out["services"] = service_summary(services)
+        target = find_route(services, "POST", "/analyze")
+        out["served"] = target is not None
+        if target:
+            inst, route = target
+            # POST once to prove the route is live and returns the computed
+            # row. Provider auth failures are recorded as env issues, not
+            # app defects; any other non-2xx fails the check.
+            body = {name: "An absolute delight of a film." for name in route.get("inputs") or []}
+            body = body or {"title": "ok", "review_text": "An absolute delight of a film."}
+            status, text, err = post_json(inst["port"], route["path"], body)
+            out["post_status"] = status
+            if text is not None:
+                out["post_body"] = text[:300]
+            if err is not None:
+                out["post_error"] = err
+            blob = ((text or "") + " " + (err or "")).lower()
+            out["post_auth"] = status in (401, 403) or any(
+                m in blob for m in
+                ("api_key", "api key", "openai", "anthropic", "authentication", "unauthorized")
+            )
+            out["post_row_ok"] = "sentiment" in blob and "summar" in blob
 except FileNotFoundError:
-    print(json.dumps({"error": "pxt CLI not on PATH"}))
+    out["error"] = "pxt CLI not on PATH"
 except Exception as e:
-    print(json.dumps({"error": str(e)[:300]}))
-"""
+    out["error"] = str(e)[:300]
+finally:
+    cleanup_services(pxtc, "eval_app")
+
+print(json.dumps(out))
+'''
         result = sandbox.exec_verification(check_code)
 
         if not result.success:
@@ -150,8 +182,50 @@ except Exception as e:
             return {"pass": False, "reason": "missing sentiment computed column"}
         if not data.get("has_summary"):
             return {"pass": False, "reason": "missing summary computed column"}
+        if data.get("service_update_rc") not in (None, 0):
+            return {
+                "pass": False,
+                "reason": f"pxt service update failed: {data.get('service_update_err', '?')}",
+                "services": data.get("services", []),
+            }
+        if not data.get("served"):
+            return {
+                "pass": False,
+                "reason": "no running service exposes POST /analyze",
+                "services": data.get("services", []),
+            }
+        if data.get("post_auth"):
+            # Provider credentials absent: the route's compute cannot run,
+            # so the functional layer is unmeasured rather than credited.
+            return {
+                "pass": None,
+                "skipped": True,
+                "reason": "POST hit a provider auth wall; treated as unmeasured",
+                "post_status": data.get("post_status"),
+                "post_body": data.get("post_body"),
+            }
+        post_status = data.get("post_status")
+        if not (post_status and 200 <= post_status < 300):
+            return {
+                "pass": False,
+                "reason": (
+                    f"POST /analyze failed: "
+                    f"{data.get('post_body') or data.get('post_error') or '?'}"
+                ),
+                "post_status": post_status,
+            }
+        if not data.get("post_row_ok"):
+            return {
+                "pass": False,
+                "reason": "POST /analyze response lacks the computed sentiment/summary fields",
+                "post_body": data.get("post_body"),
+            }
 
         return {
             "pass": True,
             "columns": data.get("columns", []),
+            "services": data.get("services", []),
+            "service_check_ok": data.get("service_check_ok"),
+            "post_status": data.get("post_status"),
+            "post_body": data.get("post_body"),
         }

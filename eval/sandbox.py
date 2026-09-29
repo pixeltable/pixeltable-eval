@@ -11,12 +11,19 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
 import textwrap
 from dataclasses import dataclass, field
 from pathlib import Path
+
+
+def _free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
 
 
 @dataclass
@@ -32,18 +39,33 @@ class SandboxResult:
 class PixeltableSandbox:
     """Fresh Pixeltable environment scoped to a single eval run."""
 
-    def __init__(self, fixture_dir: Path | str | None = None, timeout: int = 300):
+    def __init__(
+        self,
+        fixture_dir: Path | str | None = None,
+        timeout: int = 300,
+        fixture_subdir: str = "docs",
+    ):
         self.home = Path(tempfile.mkdtemp(prefix="pxteval_"))
         self.workdir = Path(tempfile.mkdtemp(prefix="pxtwork_"))
         self.fixture_dir = Path(fixture_dir) if fixture_dir else None
         self.timeout = timeout
 
         if self.fixture_dir and self.fixture_dir.exists():
-            docs_dir = self.workdir / "docs"
-            docs_dir.mkdir(exist_ok=True)
+            dest_dir = self.workdir / fixture_subdir
+            dest_dir.mkdir(exist_ok=True)
             for f in self.fixture_dir.iterdir():
                 if f.is_file():
-                    shutil.copy2(f, docs_dir / f.name)
+                    shutil.copy2(f, dest_dir / f.name)
+
+        # Provider api keys live in ~/.pixeltable/config.toml; symlink it into
+        # the sandbox home so generated code can call OpenAI etc. Symlink
+        # rather than copy so secrets are not duplicated on disk.
+        user_cfg = Path.home() / ".pixeltable" / "config.toml"
+        if user_cfg.exists():
+            try:
+                (self.home / "config.toml").symlink_to(user_cfg)
+            except OSError:
+                pass
 
         # Provider api keys live in ~/.pixeltable/config.toml; symlink it into
         # the sandbox home so generated code can call OpenAI etc. Symlink
@@ -63,6 +85,9 @@ class PixeltableSandbox:
         env = os.environ.copy()
         env["PIXELTABLE_HOME"] = str(self.home)
         env.pop("PIXELTABLE_CONFIG", None)
+        # Isolate the pxt daemon from any other project's daemon on this
+        # machine; service commands in functional checks get their own.
+        env["PXT_PORT"] = str(_free_port())
 
         import time
         start = time.monotonic()

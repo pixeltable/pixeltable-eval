@@ -54,10 +54,13 @@ HALLUCINATED_APIS = [
     (r"from pixeltable\s+import\s+Table\b", "from pixeltable import Table (wrong)"),
     (r"pxt\.Required\s*\[", "pxt.Required (does not exist; optional is T | None)"),
     (r"\bpxt\s+serve\b", "pxt serve (retired CLI; use pxt schema update + pxt service update)"),
-    (r"\bpxt\s+service\s+run\b", "pxt service run (does not exist; use pxt service update)"),
     (r"\[+\s*tool\.pixeltable\.(serve|service)", "[tool.pixeltable.serve/service] TOML (does not exist)"),
     (r"\[\[\s*service\s*\]\]|\[\[\s*service\.routes\s*\]\]", "[[service]] TOML routes (retired; use FastAPIRouter)"),
     (r"uvx\s+pixeltable-new[^\n]*--(backend|serving|batch)\b", "pixeltable-new --backend/--serving/--batch (removed flags)"),
+    (r"\bembeddings\s*\(\s*model\s*=", "embeddings(model=...) bare call (bind params via embeddings.using(model=...))"),
+    (r"\b[A-Z]\w*\.view\s*\(", "Model.view() (not a real API; views come from iterators/create_view)"),
+    (r"base\s*=\s*\w*(?:splitter|iterator)\w*\s*\(", "base= takes a table, not an iterator call"),
+    (r"\.self_path\b", "col.self_path (does not exist)"),
 ]
 
 IDIOMATICITY_SIGNALS = [
@@ -77,8 +80,11 @@ IDIOMATICITY_SIGNALS = [
     (r"FastAPIRouter|pixeltable\.serving", "uses FastAPIRouter for serving"),
     (r"add_(insert|update|delete|compute|query)_route\b", "declares serving routes"),
     (r"pxt\s+schema\s+update", "applies schema with pxt schema update"),
-    (r"pxt\s+service\s+update", "starts the service with pxt service update"),
+    (r"pxt\s+service\s+(update|run)\b", "starts the service with pxt service update/run"),
     (r"return_rows\s*=\s*True", "uses insert(return_rows=True)"),
+    (r"uploadfile_inputs\s*=", "declares multipart upload inputs"),
+    (r"return_fileresponse\s*=\s*True", "serves media via return_fileresponse"),
+    (r"export_sql\s*=", "dual-writes rows via export_sql"),
 ]
 
 # Weights for composite scoring
@@ -163,6 +169,11 @@ class StoryVerifier(ABC):
     def negative_patterns(self) -> list[tuple[str, str]]:
         """(regex, description) pairs that should NOT appear."""
         ...
+
+    # Whether the sandbox should execute the generated code at all. When
+    # False, verify() skips exec entirely and the composite stays static.
+    # A functional veto only applies when a check actually ran.
+    requires_sandbox = True
 
     def functional_check(self, sandbox: PixeltableSandbox) -> dict:
         """Run after code execution. Return {'pass': bool, ...details}.
@@ -253,7 +264,6 @@ class StoryVerifier(ABC):
         # --- Layer 3: Functional execution (if sandbox provided) ---
         sandbox_result = None
         functional: dict = {"pass": None, "skipped": True}
-        functional_score = 0.0
 
         functional_score: float | None = None
         if sandbox:
@@ -299,7 +309,14 @@ class StoryVerifier(ABC):
             # Static only
             score = static_score
 
-        passed = score >= PASS_THRESHOLD
+        # A ran-and-failed functional check vetoes the pass: regex coverage
+        # alone must not certify code that does not execute. When the
+        # functional layer is unmeasured (static-only eval, skipped check),
+        # static must instead be clean: full positive coverage and zero
+        # fired anti-patterns, so one forbidden API cannot pass at 4/5.
+        passed = score >= PASS_THRESHOLD and functional_pass is not False
+        if functional_pass is None:
+            passed = passed and static_pass
 
         return VerificationResult(
             story_id=self.story_id,
