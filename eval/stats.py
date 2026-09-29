@@ -41,7 +41,7 @@ def wilson_ci(successes: int, trials: int, confidence: float = 0.95) -> Confiden
 
     denom = 1 + z**2 / n
     center = (p_hat + z**2 / (2 * n)) / denom
-    margin = z * math.sqrt((p_hat * (1 - p_hat) / n + z**2 / (4 * n**2))) / denom
+    margin = z * math.sqrt(p_hat * (1 - p_hat) / n + z**2 / (4 * n**2)) / denom
 
     return ConfidenceInterval(
         point=p_hat,

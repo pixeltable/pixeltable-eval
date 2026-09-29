@@ -214,6 +214,13 @@ probes report as skipped rather than passed, and the `Func` column shows
 coverage. Each matrix cell is a real agent run (minutes + API spend); a
 3-rep subset (u1, u3, u4, u5 x cold/skill) is the cheapest useful cohort.
 
+Sandbox caveat before scheduling: generated code and the agent's shell
+run as your user with your full environment (the runner passes
+`--dangerously-skip-permissions`, and provider keys reach the sandbox via
+a symlinked `~/.pixeltable/config.toml`). A fresh PIXELTABLE_HOME isolates
+the catalog, not the host — on a schedule, run inside a container with
+scoped credentials.
+
 ## Decision Gate (R0 Spike)
 
 After running the spike:

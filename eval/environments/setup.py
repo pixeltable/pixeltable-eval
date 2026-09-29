@@ -52,7 +52,6 @@ def setup_environment(
 
 def _setup_cold(workdir: Path):
     """Empty project — no hints, no skill, no docs."""
-    pass
 
 
 def _setup_with_skill(workdir: Path):

@@ -23,7 +23,6 @@ import json
 from eval.sandbox import PixeltableSandbox
 from eval.verifier import StoryVerifier
 
-
 PROMPT = (
     "Build a Pixeltable pipeline that demonstrates incremental computation.\n\n"
     "Requirements:\n"

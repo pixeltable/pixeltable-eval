@@ -25,7 +25,6 @@ from eval.sandbox import PixeltableSandbox
 from eval.stories._service_check import SERVICE_CHECK_PREAMBLE
 from eval.verifier import StoryVerifier
 
-
 PROMPT = (
     "Build a Pixeltable-powered REST API that manages a product catalog.\n\n"
     "Requirements (each step builds on the previous):\n"
