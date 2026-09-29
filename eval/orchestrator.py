@@ -89,12 +89,24 @@ def resolve_stories(tokens: list[str], name_filter: str | None = None) -> list[s
     """
     registry = story_registry()
     resolved: list[str] = []
+    unmatched: list[str] = []
     for token in tokens:
         if token in registry:
             resolved.append(token)
             continue
         prefix = token.rstrip("/") + "/"
-        resolved.extend(k for k in registry if k.startswith(prefix))
+        hits = [k for k in registry if k.startswith(prefix)]
+        if hits:
+            resolved.extend(hits)
+        else:
+            unmatched.append(token)
+    if unmatched:
+        # A typo'd id silently dropping out of a scheduled matrix is worse
+        # than a hard stop.
+        raise SystemExit(
+            f"unknown story/eval token(s) {unmatched!r}; "
+            "run `python -m eval list` for ids"
+        )
     if name_filter:
         rx = re.compile(name_filter)
         resolved = [k for k in resolved if rx.search(k)]
@@ -185,7 +197,7 @@ def run_single_cell(
 
         # Save transcript and code if run_dir provided
         if run_dir:
-            _save_artifacts(run_dir, context, rep, runner_result)
+            _save_artifacts(run_dir, story_id, runner_name, context, rep, runner_result)
 
         if runner_result.error and not runner_result.extracted_code:
             return _make_result(
@@ -201,9 +213,15 @@ def run_single_cell(
         extra_evidence = "\n\n".join(runner_result.files_created.values())
 
         judge_result = None
+        judge_error = None
         if judge is not None:
             jr = judge.grade(code, task=prompt)
-            judge_result = dataclasses.asdict(jr)
+            if jr.error:
+                # A failed judge call is unmeasured, not a zero: keep the
+                # layer out of the composite and record the error only.
+                judge_error = jr.error
+            else:
+                judge_result = dataclasses.asdict(jr)
 
         with ExitStack() as stack:
             # Stories that opt out of execution (static-only grading) skip the
@@ -232,6 +250,8 @@ def run_single_cell(
                 transcript=runner_result.raw_output,
                 extra_evidence=extra_evidence,
             )
+            if judge_error:
+                verification.llm_details = {"error": judge_error}
 
         return _make_result(
             story_id, runner_name, context, rep, runner_result, verification,
@@ -242,14 +262,23 @@ def run_single_cell(
         shutil.rmtree(workdir, ignore_errors=True)
 
 
-def _save_artifacts(run_dir: Path, context: ContextLevel, rep: int, runner_result: RunnerResult):
+def _save_artifacts(
+    run_dir: Path,
+    story_id: str,
+    runner_name: str,
+    context: ContextLevel,
+    rep: int,
+    runner_result: RunnerResult,
+):
     """Save transcript and extracted code for manual review."""
     transcripts_dir = run_dir / "transcripts"
     transcripts_dir.mkdir(parents=True, exist_ok=True)
     code_dir = run_dir / "code"
     code_dir.mkdir(parents=True, exist_ok=True)
 
-    label = f"{context.value}_rep{rep}"
+    # Story + runner in the label: a matrix shares context/rep across
+    # stories, and per-trial evidence must not overwrite.
+    label = f"{story_id.replace('/', '_')}_{runner_name}_{context.value}_rep{rep}"
 
     if runner_result.raw_output:
         (transcripts_dir / f"{label}.txt").write_text(runner_result.raw_output)

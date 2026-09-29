@@ -45,8 +45,14 @@ def sentiment(text: str) -> str:
     return 'negative' if 'worst' in text or 'Terrible' in text else 'positive'
 
 
+@pxt.udf
+def keywords(text: str) -> str:
+    return ','.join(sorted(set(text.lower().split()))[:5])
+
+
 articles.add_computed_column(word_count=word_count(articles.body), if_exists='ignore')
 articles.add_computed_column(sentiment=sentiment(articles.body), if_exists='ignore')
+articles.add_computed_column(keywords=keywords(articles.body), if_exists='ignore')
 
 articles.insert([
     {'title': 'One', 'body': 'Pixeltable makes pipelines declarative.', 'source': 'blog'},

@@ -224,8 +224,9 @@ def test_generic_eval_verifier_static():
     assert v.story_id == "999-demo/t"
     assert v.requires_sandbox is False
     res = v.verify("import pixeltable\nfrom langchain import x")
-    assert res.score == 4.0  # 5 static - 1 anti-pattern point
-    assert res.passed is True
+    assert res.score == 4.0  # partial credit: 5 static - 1 anti-pattern point
+    # but an unmeasured functional layer cannot certify a fired anti-pattern
+    assert res.passed is False
 
 
 def test_registry_resolves_curated_and_eval_ids():
@@ -248,6 +249,39 @@ def test_registry_resolves_curated_and_eval_ids():
         resolve_stories(["u1"], name_filter="matches-nothing")
     with pytest.raises(SystemExit):
         resolve_stories(["nonexistent-category"])
+    # A typo'd token must not silently drop out next to a valid one.
+    with pytest.raises(SystemExit):
+        resolve_stories(["u1", "typo"])
+    with pytest.raises(SystemExit):
+        resolve_stories(["u1", "006-negative-controls", "bogus"])
+
+
+def test_static_only_negative_pattern_vetoes_pass():
+    """A fired anti-pattern on an unmeasured functional layer must not pass:
+    coverage alone reaching the threshold was the PR-7 review finding."""
+    from eval.loader import EvalDefinition
+    from eval.stories.generic import GenericEvalVerifier
+
+    defn = EvalDefinition(
+        eval_id="t/x",
+        category="t",
+        name="x",
+        prompt="p",
+        positive_patterns=[(r"import pixeltable", "uses pixeltable")],
+        negative_patterns=[(r"import pandas", "pandas as store")],
+        execute_code=False,
+    )
+    v = GenericEvalVerifier(defn)
+    assert v.requires_sandbox is False
+
+    bad = v.verify("import pixeltable\nimport pandas as pd\n")
+    assert bad.functional_pass is None  # no sandbox, unmeasured
+    assert bad.score >= 3.0             # partial credit still reported
+    assert bad.passed is False          # ... but the pass is vetoed
+    assert bad.static_pass is False
+
+    good = v.verify("import pixeltable\n")
+    assert good.passed is True
 
 
 def test_eval_fixture_convention():

@@ -54,6 +54,7 @@ class U5IncrementalVerifier(StoryVerifier):
             (r"import pixeltable|from pixeltable", "uses pixeltable"),
             (r"@pxt\.udf\b", "defines a UDF (word_count)"),
             (r"chat_completions", "uses an LLM computed column"),
+            (r"keyword", "declares the keywords column"),
             (r"add_computed_column|TableModel|model_base", "declares computed columns"),
             (r"reading_time", "adds the late computed column"),
             (r"\.insert\s*\(", "inserts rows"),
@@ -86,20 +87,35 @@ try:
         print(json.dumps({"error": f"no articles table, found: {tables}"}))
     else:
         t = pxt.get_table(arts[0])
-        cols = t.get_metadata()["columns"]
+        meta = t.get_metadata()
+        cols = meta["columns"]
         names = {n.lower(): n for n in cols}
 
         wc = next((n for k, n in names.items() if "word" in k or "count" in k), None)
         rt = next((n for k, n in names.items() if "reading" in k or "time" in k), None)
         sent = next((n for k, n in names.items() if "sentiment" in k), None)
+        kw = next((n for k, n in names.items() if "keyword" in k), None)
+
+        # Backfill proof comes from schema history, not final values: the
+        # late column must carry a version_added newer than the initial
+        # schema, so a column declared upfront cannot fake incremental work.
+        initial_version = min(
+            (m.get("version_added") or 0) for m in cols.values()
+        )
+        rt_meta = cols.get(rt) or {}
 
         out = {
             "table": arts[0],
             "columns": list(cols),
             "row_count": t.count(),
             "wc_col": wc,
+            "wc_computed": bool(wc and cols[wc].get("is_computed")),
             "rt_col": rt,
+            "rt_computed": bool(rt_meta.get("is_computed")),
+            "rt_version_added": rt_meta.get("version_added"),
+            "initial_version": initial_version,
             "sentiment_col": sent,
+            "keywords_col": kw,
         }
 
         if wc and rt:
@@ -129,12 +145,31 @@ except Exception as e:
                 "pass": False,
                 "reason": f"expected >= 5 rows across two insert waves, got {data.get('row_count')}",
             }
-        if not data.get("wc_col"):
-            return {"pass": False, "reason": "no word-count computed column found"}
+        if not data.get("wc_col") or not data.get("wc_computed"):
+            return {"pass": False, "reason": "no computed word-count column found"}
+        if not data.get("keywords_col"):
+            return {"pass": False, "reason": "no keywords column found (prompt requires one)"}
+        if not data.get("sentiment_col"):
+            return {"pass": False, "reason": "no sentiment column found"}
         if not data.get("rt_col"):
             return {
                 "pass": False,
                 "reason": "no reading-time column added after data existed",
+            }
+        if not data.get("rt_computed"):
+            return {
+                "pass": False,
+                "reason": "reading_time is not a computed column",
+            }
+        rt_version = data.get("rt_version_added")
+        if rt_version is None or rt_version <= data.get("initial_version", 0):
+            return {
+                "pass": False,
+                "reason": (
+                    f"reading_time was part of the initial schema "
+                    f"(version_added={rt_version}); the story requires "
+                    f"adding it after data exists"
+                ),
             }
         if data.get("wc_nulls", 1) > 0:
             return {

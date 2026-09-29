@@ -135,9 +135,9 @@ try:
         out["served"] = target is not None
         if target:
             inst, route = target
-            # POST once to prove the route is live. Inputs are filled from
-            # the route's own declaration; provider auth failures are
-            # recorded, not treated as app defects.
+            # POST once to prove the route is live and returns the computed
+            # row. Provider auth failures are recorded as env issues, not
+            # app defects; any other non-2xx fails the check.
             body = {name: "An absolute delight of a film." for name in route.get("inputs") or []}
             body = body or {"title": "ok", "review_text": "An absolute delight of a film."}
             status, text, err = post_json(inst["port"], route["path"], body)
@@ -146,6 +146,12 @@ try:
                 out["post_body"] = text[:300]
             if err is not None:
                 out["post_error"] = err
+            blob = ((text or "") + " " + (err or "")).lower()
+            out["post_auth"] = status in (401, 403) or any(
+                m in blob for m in
+                ("api_key", "api key", "openai", "anthropic", "authentication", "unauthorized")
+            )
+            out["post_row_ok"] = "sentiment" in blob and "summar" in blob
 except FileNotFoundError:
     out["error"] = "pxt CLI not on PATH"
 except Exception as e:
@@ -187,6 +193,32 @@ print(json.dumps(out))
                 "pass": False,
                 "reason": "no running service exposes POST /analyze",
                 "services": data.get("services", []),
+            }
+        if data.get("post_auth"):
+            # Provider credentials absent: the route's compute cannot run,
+            # so the functional layer is unmeasured rather than credited.
+            return {
+                "pass": None,
+                "skipped": True,
+                "reason": "POST hit a provider auth wall; treated as unmeasured",
+                "post_status": data.get("post_status"),
+                "post_body": data.get("post_body"),
+            }
+        post_status = data.get("post_status")
+        if not (post_status and 200 <= post_status < 300):
+            return {
+                "pass": False,
+                "reason": (
+                    f"POST /analyze failed: "
+                    f"{data.get('post_body') or data.get('post_error') or '?'}"
+                ),
+                "post_status": post_status,
+            }
+        if not data.get("post_row_ok"):
+            return {
+                "pass": False,
+                "reason": "POST /analyze response lacks the computed sentiment/summary fields",
+                "post_body": data.get("post_body"),
             }
 
         return {

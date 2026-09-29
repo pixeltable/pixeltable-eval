@@ -139,6 +139,15 @@ def find_row(obj):
     return None
 
 
+def sku_of(row):
+    """Value of a row's sku-ish field, or None."""
+    if isinstance(row, dict):
+        for k, v in row.items():
+            if "sku" in str(k).lower():
+                return v
+    return None
+
+
 try:
     sh([pxtc, "init"], timeout=60)
     upd = sh([pxtc, "schema", "update", "app.py", "eval_app", "-f"])
@@ -194,10 +203,11 @@ try:
                     row = None
         row = row or dict(SEED)
 
-        # 2. query route returns it
+        # 2. query route returns the stored row, verified by sku value
         qtarget = find_route(services, "GET", "/product")
         if not qtarget:
             qtarget = find_route(services, "POST", "/product")
+        out["query_sku_ok"] = None
         if qtarget:
             inst, route = qtarget
             params = fill_inputs(route, row)
@@ -212,11 +222,16 @@ try:
                     fresher = find_row(json.loads(text))
                 except Exception:
                     fresher = None
+                out["query_sku_ok"] = (
+                    fresher is not None and sku_of(fresher) == SEED["sku"]
+                )
                 if fresher:
                     row.update(fresher)
+            else:
+                out["query_sku_ok"] = False
 
-        # 3. delete route removes it: required to exist; exercised when its
-        # declared inputs are satisfiable from the stored row.
+        # 3. delete route removes it: a 2xx alone is not proof; the row must
+        # be gone when the query route is asked again.
         dtarget = find_route(services, "POST", "delete")
         out["delete_route"] = dtarget is not None
         if dtarget:
@@ -233,8 +248,9 @@ try:
                 status, text, err = post_json(inst["port"], route["path"], body)
                 out["delete_status"] = status
                 out["delete_body"] = (text or err or "")[:300]
-                out["delete_verified"] = bool(status and 200 <= status < 300)
-                if out["delete_verified"] and qtarget:
+                if not (status and 200 <= status < 300):
+                    out["delete_verified"] = False
+                elif qtarget:
                     inst2, route2 = qtarget
                     params = fill_inputs(route2, row)
                     if route2.get("method") == "GET":
@@ -242,6 +258,18 @@ try:
                     else:
                         s2, t2, e2 = post_json(inst2["port"], route2["path"], params)
                     out["post_delete_query_status"] = s2
+                    gone = True
+                    if s2 and 200 <= s2 < 300 and t2:
+                        try:
+                            leftover = find_row(json.loads(t2))
+                        except Exception:
+                            leftover = None
+                        if leftover is not None and sku_of(leftover) == SEED["sku"]:
+                            gone = False
+                    out["delete_verified"] = gone
+                else:
+                    out["delete_verified"] = None
+                    out["delete_unverifiable"] = True
             else:
                 out["delete_verified"] = None
                 out["delete_unsatisfiable_inputs"] = declared
@@ -298,16 +326,28 @@ print(json.dumps(out))
                 "reason": f"query route did not return the row: {data.get('query_body', '?')}",
                 "query_status": data.get("query_status"),
             }
+        if data.get("query_sku_ok") is not True:
+            return {
+                "pass": False,
+                "reason": "query route response does not contain the inserted sku",
+                "query_body": data.get("query_body"),
+            }
         if not data.get("delete_route"):
             return {
                 "pass": False,
                 "reason": "no delete route registered",
                 "services": data.get("services", []),
             }
-        if data.get("delete_verified") is False:
+        if data.get("delete_verified") is not True:
+            detail = (
+                f"row still present after delete: {data.get('delete_body', '?')}"
+                if data.get("delete_verified") is False
+                else f"delete could not be exercised or verified "
+                     f"(inputs: {data.get('delete_unsatisfiable_inputs', '?')})"
+            )
             return {
                 "pass": False,
-                "reason": f"delete route rejected the row: {data.get('delete_body', '?')}",
+                "reason": detail,
                 "delete_status": data.get("delete_status"),
             }
 

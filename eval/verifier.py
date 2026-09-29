@@ -310,8 +310,13 @@ class StoryVerifier(ABC):
             score = static_score
 
         # A ran-and-failed functional check vetoes the pass: regex coverage
-        # alone must not certify code that does not execute.
+        # alone must not certify code that does not execute. When the
+        # functional layer is unmeasured (static-only eval, skipped check),
+        # static must instead be clean: full positive coverage and zero
+        # fired anti-patterns, so one forbidden API cannot pass at 4/5.
         passed = score >= PASS_THRESHOLD and functional_pass is not False
+        if functional_pass is None:
+            passed = passed and static_pass
 
         return VerificationResult(
             story_id=self.story_id,

@@ -191,15 +191,23 @@ def classify_infra_error(error: str | None) -> bool:
         "permission denied",
         "claude CLI not found",
         # Embedded-postgres and service-daemon flakes seen on back-to-back
-        # cell launches, plus provider auth: the sandbox could not run the
-        # code through no fault of the generated app.
+        # cell launches: the sandbox could not run the code through no
+        # fault of the generated app.
         "initdb",
         "RemoteDisconnected",
         "CrashLoopBackOff",
-        "api_key",
-        "api key",
-        "authentication",
-        "unauthorized",
+        # Provider credential failures only: generic "unauthorized" or
+        # "authentication" substrings would also match an app's own auth
+        # guard errors, which are capability failures, not infra.
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "Incorrect API key",
+        "invalid_api_key",
+        "AuthenticationError",
+        "authentication_error",
+        "api_key not set",
+        "no api key",
+        "missing api key",
     ]
     error_lower = error.lower()
     return any(marker.lower() in error_lower for marker in infra_markers)

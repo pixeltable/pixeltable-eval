@@ -82,10 +82,16 @@ def cmd_run(args):
         run_spike(model=args.model, reps=args.reps)
         return
 
-    from eval.orchestrator import run_matrix
+    from eval.orchestrator import run_matrix, story_registry
     contexts = args.context or ["cold", "skill"]
     runners = args.runner or ["claude_code"]
-    stories = args.story or ["u1"]
+    if args.story:
+        stories = args.story
+    elif args.filter:
+        # -f alone searches the whole runnable registry, not just u1.
+        stories = list(story_registry())
+    else:
+        stories = ["u1"]
 
     run_matrix(stories, runners, contexts, args.reps, model=args.model,
                name_filter=args.filter)

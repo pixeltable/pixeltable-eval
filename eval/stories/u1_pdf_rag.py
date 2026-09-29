@@ -144,14 +144,19 @@ try:
 
     # Prove the query path works end to end: similarity() only resolves when
     # the column carries a live embedding index, and running it exercises the
-    # embed function on the query string. Provider auth failures are recorded
+    # embed function on the query string. The probe targets the populated
+    # chunk table/view itself - a working index on the base doc table must
+    # not mask a broken chunk search. Provider auth failures are recorded
     # as env issues, not app defects.
     sim_ok = False
     sim_auth = False
     sim_err = None
     sim_col = None
-    probes = list(candidates) + ([base[0]] if base else [])
+    sim_table = None
+    probes = sorted(candidates, key=lambda t: t.count(), reverse=True)
     for cand in probes:
+        if cand.count() == 0:
+            continue
         meta = cand.get_metadata()
         for cname, m in meta["columns"].items():
             if "string" not in str(m.get("type_", "")).lower():
@@ -159,7 +164,7 @@ try:
             try:
                 sim = cand[cname].similarity(string="test query")
                 cand.order_by(sim, asc=False).limit(1).collect()
-                sim_ok, sim_col = True, cname
+                sim_ok, sim_col, sim_table = True, cname, meta.get("path")
                 break
             except Exception as e:
                 msg = str(e).lower()
@@ -176,6 +181,7 @@ try:
         "similarity_ok": sim_ok,
         "similarity_auth_skip": sim_auth,
         "similarity_column": sim_col,
+        "similarity_table": sim_table,
         "similarity_error": sim_err,
     }))
 except Exception as e:
@@ -232,5 +238,6 @@ except Exception as e:
             "chunk_count": chunk_count,
             "tables_found": tables,
             "similarity_column": data.get("similarity_column"),
+            "similarity_table": data.get("similarity_table"),
             "similarity_auth_skip": data.get("similarity_auth_skip"),
         }
