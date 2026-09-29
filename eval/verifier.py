@@ -170,6 +170,11 @@ class StoryVerifier(ABC):
         """(regex, description) pairs that should NOT appear."""
         ...
 
+    # Whether the sandbox should execute the generated code at all. When
+    # False, verify() skips exec entirely and the composite stays static.
+    # A functional veto only applies when a check actually ran.
+    requires_sandbox = True
+
     def functional_check(self, sandbox: PixeltableSandbox) -> dict:
         """Run after code execution. Return {'pass': bool, ...details}.
         Override in subclass for story-specific checks. Default: skip."""
@@ -259,7 +264,6 @@ class StoryVerifier(ABC):
         # --- Layer 3: Functional execution (if sandbox provided) ---
         sandbox_result = None
         functional: dict = {"pass": None, "skipped": True}
-        functional_score = 0.0
 
         functional_score: float | None = None
         if sandbox:
@@ -305,7 +309,9 @@ class StoryVerifier(ABC):
             # Static only
             score = static_score
 
-        passed = score >= PASS_THRESHOLD
+        # A ran-and-failed functional check vetoes the pass: regex coverage
+        # alone must not certify code that does not execute.
+        passed = score >= PASS_THRESHOLD and functional_pass is not False
 
         return VerificationResult(
             story_id=self.story_id,

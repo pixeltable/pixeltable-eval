@@ -26,6 +26,11 @@ class EvalDefinition:
     answer_dir: Path | None = None
     positive_patterns: list[tuple[str, str]] = field(default_factory=list)
     negative_patterns: list[tuple[str, str]] = field(default_factory=list)
+    # grader.py may set EXECUTE_CODE = True to run the generated code in the
+    # sandbox; a clean exec then counts as the functional layer. Default off:
+    # most evals need provider keys or fixtures the sandbox cannot see, so
+    # executing would produce false negatives.
+    execute_code: bool = False
 
 
 DEFAULT_NEGATIVE_PATTERNS = [
@@ -65,7 +70,7 @@ def load_all_evals() -> list[EvalDefinition]:
             prompt = task_file.read_text().strip()
             answer_dir = eval_dir / "answer" if (eval_dir / "answer").exists() else None
 
-            positive, negative = _load_grader(eval_dir)
+            positive, negative, execute_code = _load_grader(eval_dir)
 
             evals.append(EvalDefinition(
                 eval_id=f"{category}/{eval_dir.name}",
@@ -75,6 +80,7 @@ def load_all_evals() -> list[EvalDefinition]:
                 answer_dir=answer_dir,
                 positive_patterns=positive,
                 negative_patterns=negative,
+                execute_code=execute_code,
             ))
 
     return evals
@@ -88,22 +94,24 @@ def load_evals_by_category(categories: list[str] | None = None) -> list[EvalDefi
     return [e for e in all_evals if e.category in categories or e.eval_id in categories]
 
 
-def _load_grader(eval_dir: Path) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
-    """Load positive/negative patterns from grader.py if it exists."""
+def _load_grader(eval_dir: Path) -> tuple[list[tuple[str, str]], list[tuple[str, str]], bool]:
+    """Load positive/negative patterns and EXECUTE_CODE from grader.py if it exists."""
     grader_file = eval_dir / "grader.py"
+    defaults = (DEFAULT_POSITIVE_PATTERNS[:], DEFAULT_NEGATIVE_PATTERNS[:], False)
     if not grader_file.exists():
-        return DEFAULT_POSITIVE_PATTERNS[:], DEFAULT_NEGATIVE_PATTERNS[:]
+        return defaults
 
     spec = importlib.util.spec_from_file_location("grader", grader_file)
     if not spec or not spec.loader:
-        return DEFAULT_POSITIVE_PATTERNS[:], DEFAULT_NEGATIVE_PATTERNS[:]
+        return defaults
 
     module = importlib.util.module_from_spec(spec)
     try:
         spec.loader.exec_module(module)
     except Exception:
-        return DEFAULT_POSITIVE_PATTERNS[:], DEFAULT_NEGATIVE_PATTERNS[:]
+        return defaults
 
     positive = getattr(module, "POSITIVE_PATTERNS", DEFAULT_POSITIVE_PATTERNS[:])
     negative = getattr(module, "NEGATIVE_PATTERNS", DEFAULT_NEGATIVE_PATTERNS[:])
-    return positive, negative
+    execute_code = bool(getattr(module, "EXECUTE_CODE", False))
+    return positive, negative, execute_code

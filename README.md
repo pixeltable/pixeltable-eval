@@ -112,6 +112,12 @@ TASK.txt → Runner (Claude Code / Cursor SDK) → Generated Code → Verifier �
 
 ## Eval Categories
 
+Every eval in the tree is runnable: `--story` accepts eval ids
+(`001-rag/pdf_rag`) or category prefixes (`004-idioms`). Evals grade
+statically through a generic verifier; a grader may set `EXECUTE_CODE = True`
+to additionally require a clean sandbox exec. The curated stories below
+carry bespoke functional checks.
+
 ```
 evals/
 ├── 000-fundamentals/   # create_table, computed_columns, embedding_index
@@ -121,15 +127,18 @@ evals/
 ├── 004-idioms/         # no_langchain, no_pandas_store, computed_not_loop
 ├── 005-hard/           # error_recovery, incremental_update, multi_view_pipeline
 ├── 006-negative-controls/  # raw_sql_query, simple_pandas_groupby, static_file_transform
-└── 007-scaffolding/    # use_scaffolder, pxt_service
+├── 007-scaffolding/    # use_scaffolder, pxt_service, crud_service
+└── external_benchmarks.json  # registry of external benchmarks/prompt banks
 ```
 
 ## CLI
 
 ```bash
-python -m eval list                    # List all evals
+python -m eval list                    # List all evals + external coverage
 python -m eval run --spike             # R0 spike
 python -m eval run -c skill -r claude_code --reps 3
+python -m eval.orchestrator --story 004-idioms --reps 3   # run an eval category
+python -m eval.orchestrator --story u4 --context cold --reps 1
 python -m eval.orchestrator --judge-model gpt-4o   # add the LLM judge layer
 python -m eval status                  # Show last results
 python -m eval status --failed         # Show failures only
@@ -139,7 +148,7 @@ python -m eval status --failed         # Show failures only
 
 | Axis | Values |
 |------|--------|
-| Eval | 15+ evals across 8 categories |
+| Eval | 19 evals across 8 categories + 5 curated stories |
 | Runner | Claude Code (`--print`), Cursor SDK |
 | Context | cold, +skill, +skill+MCP, +plugin |
 | Reps | 3 per cell (for variance) |
@@ -149,17 +158,43 @@ python -m eval status --failed         # Show failures only
 | Story | Description |
 |-------|-------------|
 | u1 | PDF RAG pipeline (base table + chunk view + embedding + LLM); functional: fixture PDFs ingested + similarity query runs |
-| u2 | Project scaffolding (pixeltable-new / pxt init + example); functional: skipped |
+| u2 | Project scaffolding (pixeltable-new / pxt init + example); functional: skipped (static only) |
 | u3 | REST API via TableModel + FastAPIRouter; functional: schema update + service actually boots and answers POST /analyze |
+| u4 | CRUD routes over TableModel (dependent instructions); functional: insert -> query -> delete exercised against the live service, no provider keys needed |
+| u5 | Incremental computation (two insert waves + late column); functional: backfill proven, hermetic |
 
 ## Scoring
 
 | Metric | Range | What it measures |
 |--------|-------|-----------------|
-| Pass | 0/1 | All positive patterns present, no anti-patterns |
+| Pass | 0/1 | Composite >= 3.0 AND no ran functional check failed |
 | Idiomaticity | 0-5 | Uses computed columns, embedding indexes, TableModel + FastAPIRouter, pxt service update |
 | Hallucinations | int | Non-existent APIs called (lower = better) |
 | Turns | int | How many agent turns to produce code |
+| Cost | USD | `total_cost_usd` from the runner envelope |
+
+A ran-and-failed functional check vetoes the pass: static coverage alone
+(0.6 * 5.0 = 3.0) cannot certify code that does not execute. Skipped checks
+(e.g. missing provider keys) reweight the composite instead of failing.
+
+## External benchmarks
+
+`evals/external_benchmarks.json` registers external coding benchmarks and
+prompt banks for comparison. `python -m eval list` shows how each category
+maps to what this repo measures: coding benchmarks (SWE-bench, LiveBench,
+HumanEval) are comparison references only, prompt banks supply task patterns
+for curated stories (u4+), and eval frameworks (Promptfoo, Braintrust) are
+alternatives, not content.
+
+## Scheduled runs
+
+Run weekly, not nightly, and only against a fixed dep cohort plus one
+floating-latest cell: a trend that mixes pixeltable releases, skill HEAD,
+and CLI updates attributes nothing. Track functional pass, hallucinations,
+and `cost_usd`, not composite pass. Without provider keys, similarity/LLM
+probes report as skipped rather than passed, and the `Func` column shows
+coverage. Each matrix cell is a real agent run (minutes + API spend); a
+3-rep subset (u1, u3, u4, u5 x cold/skill) is the cheapest useful cohort.
 
 ## Decision Gate (R0 Spike)
 

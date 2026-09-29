@@ -209,7 +209,18 @@ except Exception as e:
             return {"pass": False, "reason": "no chunk view or second table found"}
         if chunk_count == 0:
             return {"pass": False, "reason": "chunk table is empty (0 rows)"}
-        if not (data.get("similarity_ok") or data.get("similarity_auth_skip")):
+        if not data.get("similarity_ok"):
+            if data.get("similarity_auth_skip"):
+                # No provider key in this environment: the similarity probe
+                # cannot run, so the functional layer is unmeasured, not
+                # credited. Composite reweights to static+LLM and the Func
+                # column in the summary exposes the coverage drop.
+                return {
+                    "pass": None,
+                    "skipped": True,
+                    "reason": "similarity probe needs a provider key; auth failure treated as unmeasured",
+                    "chunk_count": chunk_count,
+                }
             return {
                 "pass": False,
                 "reason": f"similarity query does not run: {data.get('similarity_error')}",

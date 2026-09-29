@@ -5,8 +5,9 @@ Usage:
     python -m eval.cli                    # Interactive menu
     python -m eval.cli list               # List all evals
     python -m eval.cli run --spike        # R0 spike
-    python -m eval.cli run -c 001-rag     # Run specific category
-    python -m eval.cli run -f pdf_rag     # Filter by name
+    python -m eval.cli run -s u1          # Run one story
+    python -m eval.cli run -s 004-idioms  # Run an eval category
+    python -m eval.cli run -f pdf_rag     # Regex filter on resolved ids
     python -m eval.cli status             # Show last run results
 """
 
@@ -19,7 +20,7 @@ from eval.loader import load_all_evals, load_evals_by_category
 
 
 def cmd_list(args):
-    """List all available evals by category."""
+    """List all available evals by category, plus external benchmark coverage."""
     evals = load_all_evals()
     if not evals:
         print("No evals found in evals/ directory.")
@@ -32,6 +33,46 @@ def cmd_list(args):
             print(f"\n  {current_cat}/")
         print(f"    {e.name}")
     print(f"\n  Total: {len(evals)} evals")
+
+    from eval.orchestrator import STORIES
+    print(f"  Curated stories (functional checks): {', '.join(STORIES)}")
+
+    _print_external_coverage()
+
+
+_CATEGORY_NOTES = {
+    "coding_benchmark": "external harnesses kept as comparison refs; our coverage is evals/ + curated stories",
+    "prompt_library": "task-pattern sources; mined into curated stories (u4+)",
+    "eval_framework": "alternative harnesses; registered, not ingested",
+}
+
+
+def _print_external_coverage():
+    """Show the external benchmark registry and how each category maps to
+    what this repo actually measures."""
+    import json
+
+    from eval.loader import EVALS_DIR
+
+    registry_path = EVALS_DIR / "external_benchmarks.json"
+    if not registry_path.exists():
+        return
+    try:
+        entries = json.loads(registry_path.read_text())
+    except json.JSONDecodeError:
+        return
+    if not entries:
+        return
+
+    by_cat: dict[str, list[str]] = {}
+    for e in entries:
+        by_cat.setdefault(e.get("category", "?"), []).append(e.get("name", "?"))
+
+    print(f"\n  External benchmark registry ({registry_path.name}):")
+    for cat, names in sorted(by_cat.items()):
+        note = _CATEGORY_NOTES.get(cat, "reference only")
+        print(f"    {cat} ({len(names)}): {', '.join(names)}")
+        print(f"        -> {note}")
 
 
 def cmd_run(args):
@@ -46,7 +87,8 @@ def cmd_run(args):
     runners = args.runner or ["claude_code"]
     stories = args.story or ["u1"]
 
-    run_matrix(stories, runners, contexts, args.reps, model=args.model)
+    run_matrix(stories, runners, contexts, args.reps, model=args.model,
+               name_filter=args.filter)
 
 
 def cmd_status(args):

@@ -38,6 +38,11 @@ PROMPT = (
 
 class U2ScaffoldingVerifier(StoryVerifier):
 
+    # Scaffolding is verified statically; executing the generated app.py
+    # would penalize valid model declarations (e.g. forward refs) whose
+    # real check is whether the agent scaffolded and applied correctly.
+    requires_sandbox = False
+
     @property
     def story_id(self) -> str:
         return "u2_scaffolding"

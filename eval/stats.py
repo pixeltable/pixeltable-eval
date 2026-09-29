@@ -187,8 +187,19 @@ def classify_infra_error(error: str | None) -> bool:
         "ENOMEM",
         "OOM",
         "disk full",
+        "no space left",
         "permission denied",
         "claude CLI not found",
+        # Embedded-postgres and service-daemon flakes seen on back-to-back
+        # cell launches, plus provider auth: the sandbox could not run the
+        # code through no fault of the generated app.
+        "initdb",
+        "RemoteDisconnected",
+        "CrashLoopBackOff",
+        "api_key",
+        "api key",
+        "authentication",
+        "unauthorized",
     ]
     error_lower = error.lower()
     return any(marker.lower() in error_lower for marker in infra_markers)

@@ -1,0 +1,66 @@
+[
+  {
+    "id": "swe-bench",
+    "name": "SWE-bench",
+    "category": "coding_benchmark",
+    "target": "llm_agent",
+    "url": "https://github.com/swe-bench/SWE-bench",
+    "description": "Over 2,200 real GitHub issues and pull requests to test full-codebase navigation and patching."
+  },
+  {
+    "id": "livebench",
+    "name": "LiveBench",
+    "category": "coding_benchmark",
+    "target": "llm_agent",
+    "url": "https://llm-stats.com/benchmarks/livebench",
+    "description": "Continuously updated benchmark designed to prevent data contamination."
+  },
+  {
+    "id": "humaneval",
+    "name": "HumanEval",
+    "category": "coding_benchmark",
+    "target": "llm_function_logic",
+    "url": "https://github.com/openai/human-eval",
+    "description": "Baseline benchmark by OpenAI for evaluating isolated Python function generation."
+  },
+  {
+    "id": "vibe-coding-library",
+    "name": "The Vibe Coding Prompt Library",
+    "category": "prompt_library",
+    "target": "app_builder_tools",
+    "url": "https://www.notion.com/templates/vibe-coding-prompt-library",
+    "description": "Modular prompts for testing full-stack scaffolding (data models, UI components, CRUD logic)."
+  },
+  {
+    "id": "questera-app-builder",
+    "name": "Questera AI App Builder Library",
+    "category": "prompt_library",
+    "target": "app_builder_tools",
+    "url": "https://www.questera.ai/blogs/prompt-library-ai-app-builders-2026",
+    "description": "Phase-ordered prompt library (scaffolding, auth, core features) to test context limits and dependent instruction following."
+  },
+  {
+    "id": "mypromptlibrary",
+    "name": "MyPromptLibrary.ai",
+    "category": "prompt_library",
+    "target": "ide_agents",
+    "url": "https://www.mypromptlibrary.ai/",
+    "description": "Developer-curated system instructions and workflows optimized for IDE agents like Cursor and Windsurf."
+  },
+  {
+    "id": "promptfoo",
+    "name": "Promptfoo",
+    "category": "eval_framework",
+    "target": "infrastructure",
+    "url": "https://github.com/promptfoo/promptfoo",
+    "description": "Open-source CLI tool for testing and red-teaming prompts."
+  },
+  {
+    "id": "braintrust",
+    "name": "Braintrust",
+    "category": "eval_framework",
+    "target": "infrastructure",
+    "url": "https://www.braintrustdata.com",
+    "description": "Platform for versioning prompts, running datasets, and utilizing AI-as-a-judge scoring."
+  }
+]

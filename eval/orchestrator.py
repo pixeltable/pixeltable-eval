@@ -7,6 +7,8 @@ Collects results as JSON for analysis with proper statistical reporting.
 Usage:
     python -m eval.orchestrator --spike
     python -m eval.orchestrator --story u1 --runner claude_code --context cold skill --reps 10
+    python -m eval.orchestrator --story 004-idioms --reps 3
+    python -m eval.orchestrator --story 001-rag/pdf_rag --context cold --reps 1
     python -m eval.orchestrator --model claude-sonnet-4-20250514
 """
 
@@ -18,13 +20,17 @@ import importlib.metadata
 import json
 import platform
 import random
+import re
 import shutil
 import sys
 import tempfile
+from collections.abc import Callable
+from contextlib import ExitStack
 from datetime import datetime, timezone
 from pathlib import Path
 
 from eval.environments.setup import ContextLevel, setup_environment
+from eval.loader import load_all_evals
 from eval.runners.base import RunnerResult
 from eval.runners.claude_code import ClaudeCodeRunner
 from eval.runners.cursor_sdk import CursorSdkRunner
@@ -35,14 +41,16 @@ from eval.stats import (
     classify_infra_error,
     cohens_h,
     fisher_exact_test,
-    pass_at_k,
     pass_power_k,
     wilson_ci,
 )
+from eval.stories.generic import GenericEvalVerifier
 from eval.stories.u1_pdf_rag import PROMPT as U1_PROMPT, U1PdfRagVerifier
 from eval.stories.u2_scaffolding import PROMPT as U2_PROMPT, U2ScaffoldingVerifier
 from eval.stories.u3_service import PROMPT as U3_PROMPT, U3ServiceVerifier
-from eval.verifier import VerificationResult
+from eval.stories.u4_crud_service import PROMPT as U4_PROMPT, U4CrudServiceVerifier
+from eval.stories.u5_incremental import PROMPT as U5_PROMPT, U5IncrementalVerifier
+from eval.verifier import StoryVerifier, VerificationResult
 
 
 RUNNERS = {
@@ -50,11 +58,51 @@ RUNNERS = {
     "cursor_sdk": CursorSdkRunner,
 }
 
-STORIES = {
+# Curated stories with bespoke functional checks. Values are
+# (prompt, verifier factory).
+STORIES: dict[str, tuple[str, Callable[[], StoryVerifier]]] = {
     "u1": (U1_PROMPT, U1PdfRagVerifier),
     "u2": (U2_PROMPT, U2ScaffoldingVerifier),
     "u3": (U3_PROMPT, U3ServiceVerifier),
+    "u4": (U4_PROMPT, U4CrudServiceVerifier),
+    "u5": (U5_PROMPT, U5IncrementalVerifier),
 }
+
+
+def story_registry() -> dict[str, tuple[str, Callable[[], StoryVerifier]]]:
+    """Every runnable target: evals/ entries keyed by eval id
+    ('001-rag/pdf_rag') plus the curated stories. Curated keys win."""
+    registry: dict[str, tuple[str, Callable[[], StoryVerifier]]] = {
+        d.eval_id: (d.prompt, (lambda d=d: GenericEvalVerifier(d)))
+        for d in load_all_evals()
+    }
+    registry.update(STORIES)
+    return registry
+
+
+def resolve_stories(tokens: list[str], name_filter: str | None = None) -> list[str]:
+    """Expand story tokens into registry keys.
+
+    A token is an exact id ('u1', '001-rag/pdf_rag') or a category prefix
+    ('006-negative-controls' resolves to its evals). name_filter applies a
+    regex to the resolved ids.
+    """
+    registry = story_registry()
+    resolved: list[str] = []
+    for token in tokens:
+        if token in registry:
+            resolved.append(token)
+            continue
+        prefix = token.rstrip("/") + "/"
+        resolved.extend(k for k in registry if k.startswith(prefix))
+    if name_filter:
+        rx = re.compile(name_filter)
+        resolved = [k for k in resolved if rx.search(k)]
+    if not resolved:
+        raise SystemExit(
+            f"no stories matched {tokens!r}; run `python -m eval list` for ids"
+        )
+    return list(dict.fromkeys(resolved))
 
 FIXTURES = {
     "u1": Path(__file__).parent.parent / "fixtures" / "u1",
@@ -104,15 +152,16 @@ def run_single_cell(
 ) -> dict:
     """Execute one cell of the eval matrix."""
 
-    prompt, verifier_cls = STORIES[story_id]
+    prompt, verifier_factory = story_registry()[story_id]
     runner_kwargs = {}
     if model:
         runner_kwargs["model"] = model
     runner = RUNNERS[runner_name](**runner_kwargs)
-    verifier = verifier_cls()
+    verifier = verifier_factory()
     fixture_dir = FIXTURES.get(story_id)
 
-    workdir = Path(tempfile.mkdtemp(prefix=f"pxteval_{story_id}_{context.value}_"))
+    safe_id = story_id.replace("/", "_")
+    workdir = Path(tempfile.mkdtemp(prefix=f"pxteval_{safe_id}_{context.value}_"))
 
     try:
         setup_environment(workdir, context, fixture_dir)
@@ -142,15 +191,24 @@ def run_single_cell(
             jr = judge.grade(code, task=prompt)
             judge_result = dataclasses.asdict(jr)
 
-        with PixeltableSandbox(fixture_dir=fixture_dir) as sandbox:
-            # Mirror the agent's files into the sandbox so multi-file projects
-            # resolve imports and pxt commands find the real layout.
-            for name, content in runner_result.files_created.items():
-                dest = (sandbox.workdir / name).resolve()
-                if not dest.is_relative_to(sandbox.workdir.resolve()):
-                    continue
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_text(content)
+        with ExitStack() as stack:
+            # Stories that opt out of execution (static-only grading) skip the
+            # sandbox entirely: no embedded postgres boot, no flake surface.
+            sandbox = (
+                stack.enter_context(PixeltableSandbox(fixture_dir=fixture_dir))
+                if verifier.requires_sandbox
+                else None
+            )
+            if sandbox:
+                # Mirror the agent's files into the sandbox so multi-file
+                # projects resolve imports and pxt commands find the real
+                # layout.
+                for name, content in runner_result.files_created.items():
+                    dest = (sandbox.workdir / name).resolve()
+                    if not dest.is_relative_to(sandbox.workdir.resolve()):
+                        continue
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    dest.write_text(content)
             verification: VerificationResult = verifier.verify(
                 code,
                 sandbox=sandbox,
@@ -214,12 +272,20 @@ def _make_result(
         "runner_elapsed_seconds": runner_result.elapsed_seconds,
         "tokens_in": runner_result.tokens_in,
         "tokens_out": runner_result.tokens_out,
+        "cost_usd": runner_result.cost_usd,
         "turns": runner_result.turns,
         "files_created": list(runner_result.files_created.keys()),
     }
 
     err = error or runner_result.error
     is_infra = classify_infra_error(err)
+    if not is_infra and verification:
+        # Sandbox-side flakes (initdb, service daemon, provider auth) surface
+        # inside functional details or stderr, never as runner errors.
+        flake_src = str(verification.functional_details)
+        if verification.sandbox_result:
+            flake_src += " " + verification.sandbox_result.stderr[:300]
+        is_infra = classify_infra_error(flake_src)
     result["is_infra_error"] = is_infra
 
     if verification:
@@ -299,9 +365,11 @@ def run_matrix(
     reps: int,
     model: str | None = None,
     judge_model: str | None = None,
+    name_filter: str | None = None,
 ):
     """Run arbitrary subset of the eval matrix with randomized trial order."""
     results = []
+    stories = resolve_stories(stories, name_filter)
     context_levels = [ContextLevel(c) for c in contexts]
     judge = _make_judge(judge_model)
 
@@ -474,7 +542,11 @@ def print_summary(results: list[dict]):
 def main():
     parser = argparse.ArgumentParser(description="Pixeltable eval harness")
     parser.add_argument("--spike", action="store_true", help="Run spike (U1 x claude_code x 3 contexts)")
-    parser.add_argument("--story", nargs="+", choices=list(STORIES.keys()), default=list(STORIES.keys()))
+    parser.add_argument("--story", nargs="+", default=None,
+                        help="story ids (u1, u2, ...), eval ids (001-rag/pdf_rag), "
+                             "or category prefixes (004-idioms); default: all stories")
+    parser.add_argument("--filter", type=str, default=None,
+                        help="regex filter applied to resolved story ids")
     parser.add_argument("--runner", nargs="+", choices=list(RUNNERS.keys()), default=["claude_code"])
     parser.add_argument("--context", nargs="+", choices=["cold", "skill", "skill_mcp", "plugin"], default=["cold", "skill"])
     parser.add_argument("--reps", type=int, default=10, help="Repetitions per cell (default: 10)")
@@ -486,8 +558,8 @@ def main():
     if args.spike:
         run_spike(model=args.model, reps=args.reps, judge_model=args.judge_model)
     else:
-        run_matrix(args.story, args.runner, args.context, args.reps, model=args.model,
-                   judge_model=args.judge_model)
+        run_matrix(args.story or list(STORIES), args.runner, args.context, args.reps,
+                   model=args.model, judge_model=args.judge_model, name_filter=args.filter)
 
 
 if __name__ == "__main__":

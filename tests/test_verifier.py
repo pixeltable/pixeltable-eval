@@ -9,9 +9,13 @@ import re
 
 import pytest
 
+from eval.loader import EvalDefinition
+from eval.sandbox import SandboxResult
 from eval.stories.u1_pdf_rag import U1PdfRagVerifier
 from eval.stories.u2_scaffolding import U2ScaffoldingVerifier
 from eval.stories.u3_service import U3ServiceVerifier
+from eval.stories.u4_crud_service import U4CrudServiceVerifier
+from eval.stories.u5_incremental import U5IncrementalVerifier
 from eval.verifier import HALLUCINATED_APIS, StoryVerifier, command_evidence
 
 # --- command_evidence: prose earns no credit, commands do ---
@@ -171,8 +175,76 @@ def test_describing_commands_earns_no_credit():
 
 
 def test_all_story_verifiers_instantiate():
-    for cls in (U1PdfRagVerifier, U2ScaffoldingVerifier, U3ServiceVerifier):
+    for cls in (U1PdfRagVerifier, U2ScaffoldingVerifier, U3ServiceVerifier,
+                U4CrudServiceVerifier, U5IncrementalVerifier):
         v = cls()
         assert v.story_id
         assert v.positive_patterns and v.negative_patterns
         assert isinstance(v, StoryVerifier)
+
+
+# --- functional veto: a ran-and-failed check cannot pass on regex alone ---
+
+class _FailSandbox:
+    """exec_code always fails; enough to drive the functional layer."""
+    def exec_code(self, code):
+        return SandboxResult(success=False, stdout="", stderr="boom", exit_code=1)
+
+
+def test_functional_failure_vetoes_static_perfect():
+    """Static-perfect code that fails to execute must not pass; previously
+    it scored exactly 3.0 (0.6 * 5.0) and passed."""
+    v = U3ServiceVerifier()
+    res = v.verify(GOOD_U3_APP, sandbox=_FailSandbox(),
+                   transcript=f"```bash\n{GOOD_U3_COMMANDS}```")
+    assert res.static_score == 5.0
+    assert res.functional_pass is False
+    assert res.score >= 3.0  # composite still reports the static credit
+    assert res.passed is False  # but pass is vetoed
+
+
+def test_skipped_functional_does_not_veto():
+    v = U3ServiceVerifier()
+    res = v.verify(GOOD_U3_APP, transcript=f"```bash\n{GOOD_U3_COMMANDS}```")
+    assert res.functional_pass is None
+    assert res.passed is True
+
+
+# --- generic verifier + story registry (evals/ tree wiring) ---
+
+def test_generic_eval_verifier_static():
+    from eval.stories.generic import GenericEvalVerifier
+
+    d = EvalDefinition(
+        eval_id="999-demo/t", category="999-demo", name="t", prompt="p",
+        positive_patterns=[(r"import pixeltable", "pxt")],
+        negative_patterns=[(r"from langchain", "lc")],
+    )
+    v = GenericEvalVerifier(d)
+    assert v.story_id == "999-demo/t"
+    assert v.requires_sandbox is False
+    res = v.verify("import pixeltable\nfrom langchain import x")
+    assert res.score == 4.0  # 5 static - 1 anti-pattern point
+    assert res.passed is True
+
+
+def test_registry_resolves_curated_and_eval_ids():
+    from eval.orchestrator import resolve_stories, story_registry
+
+    registry = story_registry()
+    assert "u1" in registry and "u5" in registry
+    assert "001-rag/pdf_rag" in registry
+    assert "006-negative-controls" not in registry  # category, not an id
+
+    got = resolve_stories(["006-negative-controls"])
+    assert len(got) == 3
+    assert all(g.startswith("006-negative-controls/") for g in got)
+
+    assert resolve_stories(["u1", "006-negative-controls/raw_sql_query"]) == [
+        "u1", "006-negative-controls/raw_sql_query",
+    ]
+
+    with pytest.raises(SystemExit):
+        resolve_stories(["u1"], name_filter="matches-nothing")
+    with pytest.raises(SystemExit):
+        resolve_stories(["nonexistent-category"])

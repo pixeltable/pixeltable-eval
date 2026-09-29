@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 
 from eval.sandbox import PixeltableSandbox
+from eval.stories._service_check import SERVICE_CHECK_PREAMBLE
 from eval.verifier import StoryVerifier
 
 
@@ -82,41 +83,11 @@ class U3ServiceVerifier(StoryVerifier):
             return {"pass": False, "reason": "no generated file to apply"}
         (sandbox.workdir / "app.py").write_text(script.read_text())
 
-        check_code = """\
-import json
-import subprocess
-import sys
-import time
-import urllib.error
-import urllib.request
-from pathlib import Path
-
-
-# Use the pxt binary from the same interpreter as this script; a different
-# pxt on PATH may run a different pixeltable version.
-def sh(cmd, timeout=180):
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-
-
-def first_json(stdout):
-    # pxt may print a connection banner before the payload; decode the first
-    # JSON value found in the output.
-    dec = json.JSONDecoder()
-    for i, ch in enumerate(stdout):
-        if ch in "[{":
-            try:
-                return dec.raw_decode(stdout[i:])[0]
-            except json.JSONDecodeError:
-                continue
-    return None
-
+        check_code = SERVICE_CHECK_PREAMBLE + '''\
 
 out = {"columns": [], "has_sentiment": False, "has_summary": False, "served": False}
-pxtc = "pxt"
+pxtc = pxt_bin()
 try:
-    exe_pxt = Path(sys.executable).parent / "pxt"
-    if exe_pxt.exists():
-        pxtc = str(exe_pxt)
     sh([pxtc, "init"], timeout=60)
     upd = sh([pxtc, "schema", "update", "app.py", "eval_app", "-f"])
     if upd.returncode != 0:
@@ -158,38 +129,9 @@ try:
     if svc.returncode != 0:
         out["service_update_err"] = (svc.stderr or svc.stdout)[-300:]
     else:
-        services = []
-        deadline = time.time() + 90
-        while time.time() < deadline:
-            lst = sh([pxtc, "service", "list", "eval_app", "--json"], timeout=30)
-            services = first_json(lst.stdout) or []
-            if any(s.get("state") == "AVAILABLE" and s.get("port") for s in services):
-                break
-            if services and all(s.get("state") == "FAILED" for s in services):
-                break
-            time.sleep(3)
-        out["services"] = [
-            {
-                "name": s.get("name"),
-                "port": s.get("port"),
-                "state": s.get("state"),
-                "routes": [
-                    f"{r.get('method')} {r.get('path')}"
-                    for r in s.get("spec", {}).get("routes", [])
-                ],
-            }
-            for s in services
-        ]
-        target = None
-        for s in services:
-            if s.get("state") != "AVAILABLE" or not s.get("port"):
-                continue
-            for r in s.get("spec", {}).get("routes", []):
-                if r.get("method") == "POST" and r.get("path", "").rstrip("/").endswith("/analyze"):
-                    target = (s, r)
-                    break
-            if target:
-                break
+        services = wait_available(pxtc, "eval_app")
+        out["services"] = service_summary(services)
+        target = find_route(services, "POST", "/analyze")
         out["served"] = target is not None
         if target:
             inst, route = target
@@ -198,42 +140,21 @@ try:
             # recorded, not treated as app defects.
             body = {name: "An absolute delight of a film." for name in route.get("inputs") or []}
             body = body or {"title": "ok", "review_text": "An absolute delight of a film."}
-            try:
-                req = urllib.request.Request(
-                    f"http://127.0.0.1:{inst['port']}{route['path']}",
-                    data=json.dumps(body).encode(),
-                    headers={"Content-Type": "application/json"},
-                    method="POST",
-                )
-                with urllib.request.urlopen(req, timeout=90) as resp:
-                    out["post_status"] = resp.status
-                    out["post_body"] = resp.read(400).decode(errors="replace")[:300]
-            except urllib.error.HTTPError as e:
-                out["post_status"] = e.code
-                out["post_body"] = e.read(300).decode(errors="replace")
-            except Exception as e:
-                out["post_error"] = str(e)[:200]
+            status, text, err = post_json(inst["port"], route["path"], body)
+            out["post_status"] = status
+            if text is not None:
+                out["post_body"] = text[:300]
+            if err is not None:
+                out["post_error"] = err
 except FileNotFoundError:
     out["error"] = "pxt CLI not on PATH"
 except Exception as e:
     out["error"] = str(e)[:300]
 finally:
-    # Leave nothing running: stop the services bound to this sandbox's
-    # catalog, then the daemon spawned on this run's private PXT_PORT.
-    try:
-        running = first_json(sh([pxtc, "service", "list", "eval_app", "--json"], timeout=30).stdout) or []
-        names = [f"eval_app/{s['name']}" for s in running if s.get("name")]
-        if names:
-            sh([pxtc, "service", "stop", *names], timeout=60)
-    except Exception:
-        pass
-    try:
-        sh([pxtc, "daemon", "stop"], timeout=30)
-    except Exception:
-        pass
+    cleanup_services(pxtc, "eval_app")
 
 print(json.dumps(out))
-"""
+'''
         result = sandbox.exec_verification(check_code)
 
         if not result.success:
