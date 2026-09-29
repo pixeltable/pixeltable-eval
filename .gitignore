@@ -9,6 +9,7 @@ results/*
 results/*/*
 !results/*/results.json
 !results/*.json
+!results/chart.svg
 .venv/
 .DS_Store
 .pixeltable/
