@@ -57,8 +57,8 @@ def render_results_md(results: list[dict], run_id: str) -> str:
         lines += [
             "",
             f"> **Note:** {vetoed} row(s) passed despite a failed functional "
-            "check. This run predates the functional veto; re-run before "
-            "citing these pass rates.",
+            f"check. This run predates the functional veto; re-run before "
+            f"citing these pass rates.",
         ]
 
     lines += [

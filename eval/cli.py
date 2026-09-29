@@ -14,9 +14,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import sys
 
-from eval.loader import load_all_evals, load_evals_by_category
+from eval.loader import load_all_evals
 
 
 def cmd_list(args):
@@ -127,8 +126,9 @@ def cmd_status(args):
 
     from eval.stats import classify_infra_error
     for r in data:
-        if "is_infra_error" not in r:
-            r["is_infra_error"] = classify_infra_error(r.get("error"))
+        # Always recompute: marker lists improve over time and stored rows
+        # were classified with whatever the list was at write time.
+        r["is_infra_error"] = classify_infra_error(r.get("error"))
 
     from eval.orchestrator import print_summary
     print_summary(data)

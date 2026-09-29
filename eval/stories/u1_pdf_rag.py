@@ -19,7 +19,6 @@ import json
 from eval.sandbox import PixeltableSandbox
 from eval.verifier import StoryVerifier
 
-
 PROMPT = (
     "I have a folder of PDFs in ./docs. Build a Python app with Pixeltable "
     "that lets me ask questions about them."
