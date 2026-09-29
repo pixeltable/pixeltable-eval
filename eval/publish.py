@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from eval.stats import wilson_ci
+from eval.stats import classify_infra_error, wilson_ci
 
 RESULTS_DIR = Path(__file__).parent.parent / "results"
 RESULTS_MD = Path(__file__).parent.parent / "RESULTS.md"
@@ -112,6 +112,15 @@ def publish(run: Path | None = None) -> Path:
     if not results_path or not results_path.exists():
         raise SystemExit("no results found; run an eval first")
     results = json.loads(results_path.read_text())
+    # Recompute the infra flag: marker lists improve over time and stored
+    # rows were classified with whatever the list was at write time.
+    for r in results:
+        r["is_infra_error"] = classify_infra_error(
+            r.get("error")
+            or " ".join(
+                str(v) for v in (r.get("functional_details") or {}).values()
+            )
+        )
     run_id = results_path.parent.name
     RESULTS_MD.write_text(render_results_md(results, run_id))
     return RESULTS_MD

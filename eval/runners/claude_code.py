@@ -22,7 +22,10 @@ from eval.runners.base import BaseRunner, RunnerResult, collect_created_files
 
 class ClaudeCodeRunner(BaseRunner):
 
-    def __init__(self, model: str = "claude-sonnet-4-20250514", max_turns: int = 25):
+    def __init__(self, model: str | None = None, max_turns: int = 25):
+        # Default None: let the CLI pick its current model. A dated pin rots
+        # silently (deprecated models hard-fail), while --model still lets a
+        # cohort pin a specific one for attribution.
         self.model = model
         self.max_turns = max_turns
 
@@ -35,12 +38,13 @@ class ClaudeCodeRunner(BaseRunner):
             "claude",
             "--print",
             "--output-format", "json",
-            "--model", self.model,
             "--max-turns", str(self.max_turns),
             "--allowedTools", "Read,Write,Edit,Bash,WebSearch,WebFetch",
             "--dangerously-skip-permissions",
-            "-p", prompt,
         ]
+        if self.model:
+            cmd += ["--model", self.model]
+        cmd += ["-p", prompt]
 
         start = time.monotonic()
         try:
