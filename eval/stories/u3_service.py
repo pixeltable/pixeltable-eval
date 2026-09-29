@@ -22,7 +22,6 @@ from eval.sandbox import PixeltableSandbox
 from eval.stories._service_check import SERVICE_CHECK_PREAMBLE
 from eval.verifier import StoryVerifier
 
-
 PROMPT = (
     "Build a Pixeltable-powered REST API that serves a movie review analysis "
     "pipeline.\n\n"

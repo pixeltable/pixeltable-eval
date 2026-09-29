@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 try:
@@ -148,7 +148,7 @@ class LLMJudge:
             data = json.loads(text)
         except json.JSONDecodeError:
             return LLMJudgeResult(
-                error=f"Failed to parse judge response as JSON",
+                error="Failed to parse judge response as JSON",
                 raw_response=raw,
             )
 

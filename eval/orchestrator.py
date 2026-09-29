@@ -36,7 +36,6 @@ from eval.runners.claude_code import ClaudeCodeRunner
 from eval.runners.cursor_sdk import CursorSdkRunner
 from eval.sandbox import PixeltableSandbox
 from eval.stats import (
-    ConfidenceInterval,
     bootstrap_ci,
     classify_infra_error,
     cohens_h,
@@ -45,13 +44,17 @@ from eval.stats import (
     wilson_ci,
 )
 from eval.stories.generic import GenericEvalVerifier
-from eval.stories.u1_pdf_rag import PROMPT as U1_PROMPT, U1PdfRagVerifier
-from eval.stories.u2_scaffolding import PROMPT as U2_PROMPT, U2ScaffoldingVerifier
-from eval.stories.u3_service import PROMPT as U3_PROMPT, U3ServiceVerifier
-from eval.stories.u4_crud_service import PROMPT as U4_PROMPT, U4CrudServiceVerifier
-from eval.stories.u5_incremental import PROMPT as U5_PROMPT, U5IncrementalVerifier
+from eval.stories.u1_pdf_rag import PROMPT as U1_PROMPT
+from eval.stories.u1_pdf_rag import U1PdfRagVerifier
+from eval.stories.u2_scaffolding import PROMPT as U2_PROMPT
+from eval.stories.u2_scaffolding import U2ScaffoldingVerifier
+from eval.stories.u3_service import PROMPT as U3_PROMPT
+from eval.stories.u3_service import U3ServiceVerifier
+from eval.stories.u4_crud_service import PROMPT as U4_PROMPT
+from eval.stories.u4_crud_service import U4CrudServiceVerifier
+from eval.stories.u5_incremental import PROMPT as U5_PROMPT
+from eval.stories.u5_incremental import U5IncrementalVerifier
 from eval.verifier import StoryVerifier, VerificationResult
-
 
 RUNNERS = {
     "claude_code": ClaudeCodeRunner,
@@ -474,7 +477,7 @@ def print_summary(results: list[dict]):
         print("  None detected.")
 
     # Capability metrics (excluding infra errors)
-    print(f"\n--- Capability Metrics (infra errors excluded) ---")
+    print("\n--- Capability Metrics (infra errors excluded) ---")
     header = f"{'Context':<12} {'Pass Rate':<22} {'Idiom':<18} {'Halluc':>8} {'Func':>7} {'n':>4}"
     print(header)
     print("-" * len(header))
@@ -523,7 +526,7 @@ def print_summary(results: list[dict]):
           " skipped checks reweight to static+LLM)")
 
     # Consistency metrics
-    print(f"\n--- Consistency (pass^k) ---")
+    print("\n--- Consistency (pass^k) ---")
     for ctx, stats in context_stats.items():
         rate = stats["pass_rate"]
         k = stats["n"]
@@ -535,17 +538,17 @@ def print_summary(results: list[dict]):
         cold_s = context_stats["cold"]
         skill_s = context_stats["skill"]
 
-        print(f"\n--- Lift Analysis (cold -> skill) ---")
+        print("\n--- Lift Analysis (cold -> skill) ---")
         lift = (skill_s["pass_rate"] - cold_s["pass_rate"]) * 100
         print(f"  Raw lift: {lift:+.0f}pp")
 
         # CI overlap check
         if cold_s["ci"].overlaps(skill_s["ci"]):
-            print(f"  WARNING: Confidence intervals overlap -- lift is NOT statistically significant")
+            print("  WARNING: Confidence intervals overlap -- lift is NOT statistically significant")
             print(f"    Cold CI:  {cold_s['ci']}")
             print(f"    Skill CI: {skill_s['ci']}")
         else:
-            print(f"  Confidence intervals do NOT overlap -- lift appears significant")
+            print("  Confidence intervals do NOT overlap -- lift appears significant")
 
         # Fisher exact test
         cold_fail = cold_s["n"] - cold_s["successes"]
@@ -562,7 +565,7 @@ def print_summary(results: list[dict]):
         print(f"  Cohen's h effect size: {h:.3f} ({size})")
 
         # Directional signal (replaces deterministic DECISION gate)
-        print(f"\n--- Interpretation ---")
+        print("\n--- Interpretation ---")
         if p_val < 0.05 and not cold_s["ci"].overlaps(skill_s["ci"]):
             print("  SIGNAL: Statistically significant lift detected.")
         elif lift > 0 and cold_s["pass_rate"] < 0.9:

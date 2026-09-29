@@ -142,6 +142,8 @@ python -m eval.orchestrator --story u4 --context cold --reps 1
 python -m eval.orchestrator --judge-model gpt-4o   # add the LLM judge layer
 python -m eval status                  # Show last results
 python -m eval status --failed         # Show failures only
+python -m eval publish                 # Render latest run to RESULTS.md
+python -m eval publish --run spike_20260919_200809   # pick a run
 ```
 
 ## Matrix
@@ -186,6 +188,22 @@ HumanEval) are comparison references only, prompt banks supply task patterns
 for curated stories (u4+), and eval frameworks (Promptfoo, Braintrust) are
 alternatives, not content.
 
+## Publishing results
+
+Raw transcripts and extracted code stay local (`results/` is gitignored):
+they are arbitrary agent output and may contain environment details. What
+gets committed is the per-trial `results.json` plus a rendered summary:
+
+```bash
+python -m eval run -s u1 u3 u4 u5 -c cold skill --reps 3   # produce a run
+python -m eval publish                                    # -> RESULTS.md
+git add RESULTS.md results/*/results.json && git commit -m "results: ..."
+```
+
+`RESULTS.md` shows per-story/context pass rates with Wilson intervals,
+functional coverage, hallucination counts, and a failure-reason list.
+Runs recorded before the functional veto are flagged automatically.
+
 ## Scheduled runs
 
 Run weekly, not nightly, and only against a fixed dep cohort plus one
@@ -195,6 +213,13 @@ and `cost_usd`, not composite pass. Without provider keys, similarity/LLM
 probes report as skipped rather than passed, and the `Func` column shows
 coverage. Each matrix cell is a real agent run (minutes + API spend); a
 3-rep subset (u1, u3, u4, u5 x cold/skill) is the cheapest useful cohort.
+
+Sandbox caveat before scheduling: generated code and the agent's shell
+run as your user with your full environment (the runner passes
+`--dangerously-skip-permissions`, and provider keys reach the sandbox via
+a symlinked `~/.pixeltable/config.toml`). A fresh PIXELTABLE_HOME isolates
+the catalog, not the host — on a schedule, run inside a container with
+scoped credentials.
 
 ## Decision Gate (R0 Spike)
 

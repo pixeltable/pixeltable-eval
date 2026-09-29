@@ -1,0 +1,372 @@
+[
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "cold",
+    "rep": 1,
+    "timestamp": "2026-05-13T03:20:08.174742+00:00",
+    "runner_elapsed_seconds": 0.36372945783659816,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [],
+    "pass": false,
+    "error": "Configuration error in /Users/pjlb/.claude.json: JSON Parse error: Unable to parse JSON string\n\nClaude configuration file at /Users/pjlb/.claude.json is corrupted: JSON Parse error: Unable to parse JSON string\nThe corrupted file has been backed up to: /Users/pjlb/.claude/backups/.claude.json.corrupted.1778642408085\nA backup file exists at: /Users/pjlb/.claude/backups/.claude.json.backup.1778552763833\nYou can manually restore it by running: cp \"/Users/pjlb/.claude/backups/.claude.json.backup.1778"
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "cold",
+    "rep": 2,
+    "timestamp": "2026-05-13T03:22:55.898414+00:00",
+    "runner_elapsed_seconds": 167.71234170813113,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [
+      "test_setup.py",
+      "pdf_qa_app.py",
+      "run_example.py",
+      "demo.py"
+    ],
+    "pass": true,
+    "static_pass": true,
+    "functional_pass": null,
+    "idiomaticity": 5.0,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": true,
+      "creates embedding index": true,
+      "uses similarity search": true,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": null,
+      "skipped": true
+    }
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "cold",
+    "rep": 3,
+    "timestamp": "2026-05-13T03:26:10.624588+00:00",
+    "runner_elapsed_seconds": 194.6540971249342,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [
+      "test_setup.py",
+      "pdf_qa_app.py",
+      "example_usage.py",
+      "demo_without_llm.py"
+    ],
+    "pass": true,
+    "static_pass": true,
+    "functional_pass": null,
+    "idiomaticity": 4.0,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": true,
+      "creates embedding index": true,
+      "uses similarity search": true,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": null,
+      "skipped": true
+    }
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "skill",
+    "rep": 1,
+    "timestamp": "2026-05-13T03:28:07.856573+00:00",
+    "runner_elapsed_seconds": 115.24771124962717,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [
+      "pdf_qa_app.py",
+      "demo.py"
+    ],
+    "pass": true,
+    "static_pass": true,
+    "functional_pass": null,
+    "idiomaticity": 5.0,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": true,
+      "creates embedding index": true,
+      "uses similarity search": true,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": null,
+      "skipped": true
+    }
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "skill",
+    "rep": 2,
+    "timestamp": "2026-05-13T03:33:01.938621+00:00",
+    "runner_elapsed_seconds": 292.54108929215,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [
+      "quick_test.py",
+      "document_qa_app_local.py",
+      "document_qa_app.py"
+    ],
+    "pass": true,
+    "static_pass": true,
+    "functional_pass": null,
+    "idiomaticity": 5.0,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": true,
+      "creates embedding index": true,
+      "uses similarity search": true,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": null,
+      "skipped": true
+    }
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "skill",
+    "rep": 3,
+    "timestamp": "2026-05-13T03:37:05.684577+00:00",
+    "runner_elapsed_seconds": 238.787526874803,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [
+      "simple_demo.py",
+      "test_setup.py",
+      "example_usage.py",
+      "pdf_rag_app.py"
+    ],
+    "pass": true,
+    "static_pass": true,
+    "functional_pass": null,
+    "idiomaticity": 5.0,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": true,
+      "creates embedding index": true,
+      "uses similarity search": true,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": null,
+      "skipped": true
+    }
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "skill_mcp",
+    "rep": 1,
+    "timestamp": "2026-05-13T03:39:01.734180+00:00",
+    "runner_elapsed_seconds": 112.21840550005436,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [
+      "pdf_qa_app.py",
+      "example_usage.py",
+      "setup.py"
+    ],
+    "pass": true,
+    "static_pass": true,
+    "functional_pass": null,
+    "idiomaticity": 5.0,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": true,
+      "creates embedding index": true,
+      "uses similarity search": true,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": null,
+      "skipped": true
+    }
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "skill_mcp",
+    "rep": 2,
+    "timestamp": "2026-05-13T03:41:17.065685+00:00",
+    "runner_elapsed_seconds": 133.67916445760056,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [
+      "config.py",
+      "pdf_qa_app.py",
+      "setup_and_run.py",
+      "demo.py"
+    ],
+    "pass": true,
+    "static_pass": true,
+    "functional_pass": null,
+    "idiomaticity": 4.5,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": true,
+      "creates embedding index": true,
+      "uses similarity search": true,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": null,
+      "skipped": true
+    }
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "skill_mcp",
+    "rep": 3,
+    "timestamp": "2026-05-13T03:45:35.094695+00:00",
+    "runner_elapsed_seconds": 256.54834041697904,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [
+      "pdf_qa_app.py",
+      "demo_without_api.py",
+      "demo.py",
+      "simple_pdf_qa.py"
+    ],
+    "pass": true,
+    "static_pass": true,
+    "functional_pass": null,
+    "idiomaticity": 5.0,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": true,
+      "creates embedding index": true,
+      "uses similarity search": true,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": null,
+      "skipped": true
+    }
+  }
+]

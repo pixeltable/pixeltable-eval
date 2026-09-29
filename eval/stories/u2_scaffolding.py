@@ -19,7 +19,6 @@ from __future__ import annotations
 from eval.sandbox import PixeltableSandbox
 from eval.verifier import StoryVerifier
 
-
 PROMPT = (
     "I want to start a new Pixeltable project that provides a REST API for "
     "semantic search over documents.\n\n"

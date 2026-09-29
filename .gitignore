@@ -3,6 +3,12 @@ __pycache__/
 .env
 results/*
 !results/.gitkeep
+# Commit per-trial results.json (small, re-analyzable); transcripts and
+# extracted code stay local (arbitrary agent output).
+!results/*/
+results/*/*
+!results/*/results.json
+!results/*.json
 .venv/
 .DS_Store
 .pixeltable/

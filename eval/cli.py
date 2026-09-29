@@ -14,9 +14,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import sys
 
-from eval.loader import load_all_evals, load_evals_by_category
+from eval.loader import load_all_evals
 
 
 def cmd_list(args):
@@ -127,8 +126,9 @@ def cmd_status(args):
 
     from eval.stats import classify_infra_error
     for r in data:
-        if "is_infra_error" not in r:
-            r["is_infra_error"] = classify_infra_error(r.get("error"))
+        # Always recompute: marker lists improve over time and stored rows
+        # were classified with whatever the list was at write time.
+        r["is_infra_error"] = classify_infra_error(r.get("error"))
 
     from eval.orchestrator import print_summary
     print_summary(data)
@@ -142,6 +142,22 @@ def cmd_status(args):
                 score = r.get("score", 0)
                 err = r.get("error", "")[:80]
                 print(f"    {ctx}/rep{rep}: score={score:.1f} {err or 'below threshold'}")
+
+
+def cmd_publish(args):
+    """Render a run's results to RESULTS.md for committing to the repo."""
+    from pathlib import Path
+
+    from eval.publish import publish
+
+    run = None
+    if args.run:
+        p = Path(args.run)
+        run = p if p.name == "results.json" else p / "results.json"
+        if not run.exists():
+            run = Path("results") / args.run / "results.json"
+    out = publish(run)
+    print(f"Wrote {out}; commit it plus the run's results.json.")
 
 
 def cmd_interactive(args):
@@ -187,6 +203,11 @@ def main():
     status_parser = subparsers.add_parser("status", help="Show last run results")
     status_parser.add_argument("--failed", action="store_true", help="Show only failures")
 
+    pub_parser = subparsers.add_parser(
+        "publish", help="Render a run's results.json to RESULTS.md for committing")
+    pub_parser.add_argument("--run", type=str, default=None,
+                            help="results/<run> name or results.json path; default: latest")
+
     args = parser.parse_args()
 
     if args.command == "list":
@@ -195,6 +216,8 @@ def main():
         cmd_run(args)
     elif args.command == "status":
         cmd_status(args)
+    elif args.command == "publish":
+        cmd_publish(args)
     else:
         cmd_interactive(args)
 

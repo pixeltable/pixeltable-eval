@@ -1,0 +1,337 @@
+[
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "cold",
+    "rep": 1,
+    "timestamp": "2026-05-11T22:32:40.846281+00:00",
+    "runner_elapsed_seconds": 300.01176233403385,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [],
+    "pass": false,
+    "error": "Timeout after 300s"
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "cold",
+    "rep": 2,
+    "timestamp": "2026-05-11T22:37:40.908684+00:00",
+    "runner_elapsed_seconds": 300.01294212508947,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [],
+    "pass": false,
+    "error": "Timeout after 300s"
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "cold",
+    "rep": 3,
+    "timestamp": "2026-05-11T22:40:19.461768+00:00",
+    "runner_elapsed_seconds": 155.45248237531632,
+    "tokens_in": 100,
+    "tokens_out": 8441,
+    "turns": 13,
+    "files_created": [
+      "test_setup.py",
+      "pdf_qa_app.py",
+      "setup.py",
+      "demo.py"
+    ],
+    "pass": false,
+    "static_pass": true,
+    "functional_pass": false,
+    "idiomaticity": 5.0,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": true,
+      "creates embedding index": true,
+      "uses similarity search": true,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": false,
+      "skipped": true
+    },
+    "sandbox_exit_code": 1,
+    "sandbox_stderr": "/Users/pjlb/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020\n  warnings.warn(\nTraceback (most recent call last):\n  File \"/var/folders/s4/0zdx499s6sv3_0jll6ccdbh00000gn/T/pxtwork__flgxh1s/_eval_script.py\", line 92, in <module>\n    from pixeltable.functions.document import document_splitter\nModuleNotFoundErr"
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "skill",
+    "rep": 1,
+    "timestamp": "2026-05-11T22:42:53.790677+00:00",
+    "runner_elapsed_seconds": 149.89548708312213,
+    "tokens_in": 92,
+    "tokens_out": 8509,
+    "turns": 12,
+    "files_created": [
+      "setup.py",
+      "demo_basic.py",
+      "pdf_rag_app.py"
+    ],
+    "pass": false,
+    "static_pass": true,
+    "functional_pass": false,
+    "idiomaticity": 5.0,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": true,
+      "creates embedding index": true,
+      "uses similarity search": true,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": false,
+      "skipped": true
+    },
+    "sandbox_exit_code": 1,
+    "sandbox_stderr": "ERROR: Could not open requirements file: [Errno 2] No such file or directory: 'requirements.txt'\nWARNING: You are using pip version 21.2.4; however, version 26.0.1 is available.\nYou should consider upgrading via the '/Library/Developer/CommandLineTools/usr/bin/python3 -m pip install --upgrade pip' command.\n/Users/pjlb/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSS"
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "skill",
+    "rep": 2,
+    "timestamp": "2026-05-11T22:46:00.594116+00:00",
+    "runner_elapsed_seconds": 183.44725591689348,
+    "tokens_in": 132,
+    "tokens_out": 9534,
+    "turns": 17,
+    "files_created": [
+      "pdf_qa_app.py",
+      "simple_example.py",
+      "demo_setup.py"
+    ],
+    "pass": false,
+    "static_pass": true,
+    "functional_pass": false,
+    "idiomaticity": 4.5,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": true,
+      "uses document_splitter for chunking": true,
+      "creates embedding index": true,
+      "uses similarity search": true,
+      "calls an LLM for answering": true
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": false,
+      "skipped": true
+    },
+    "sandbox_exit_code": 1,
+    "sandbox_stderr": "/Users/pjlb/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020\n  warnings.warn(\nTraceback (most recent call last):\n  File \"/var/folders/s4/0zdx499s6sv3_0jll6ccdbh00000gn/T/pxtwork_c_d_7gv4/_eval_script.py\", line 10, in <module>\n    from pixeltable.functions.document import document_splitter\nModuleNotFoundErr"
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "skill",
+    "rep": 3,
+    "timestamp": "2026-05-11T22:46:04.402199+00:00",
+    "runner_elapsed_seconds": 2.143837541807443,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [],
+    "pass": false,
+    "static_pass": false,
+    "functional_pass": false,
+    "idiomaticity": 0.0,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": false,
+      "uses document_splitter for chunking": false,
+      "creates embedding index": false,
+      "uses similarity search": false,
+      "calls an LLM for answering": false
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": false,
+      "skipped": true
+    },
+    "sandbox_exit_code": 1,
+    "sandbox_stderr": "Traceback (most recent call last):\n  File \"/var/folders/s4/0zdx499s6sv3_0jll6ccdbh00000gn/T/pxtwork_q92tnzmh/_eval_script.py\", line 1, in <module>\n    {\"type\":\"result\",\"subtype\":\"success\",\"is_error\":true,\"api_error_status\":429,\"duration_ms\":247,\"duration_api_ms\":0,\"num_turns\":1,\"result\":\"You're out of extra usage \u00b7 resets 6:30pm (America/Los_Angeles)\",\"stop_reason\":\"stop_sequence\",\"session_id\":\"3b0c422e-d53c-483f-af23-34287c704343\",\"total_cost_usd\":0,\"usage\":{\"input_tokens\":0,\"cache_creation_inp"
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "skill_mcp",
+    "rep": 1,
+    "timestamp": "2026-05-11T22:46:08.398503+00:00",
+    "runner_elapsed_seconds": 2.774829332716763,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [],
+    "pass": false,
+    "static_pass": false,
+    "functional_pass": false,
+    "idiomaticity": 0.0,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": false,
+      "uses document_splitter for chunking": false,
+      "creates embedding index": false,
+      "uses similarity search": false,
+      "calls an LLM for answering": false
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": false,
+      "skipped": true
+    },
+    "sandbox_exit_code": 1,
+    "sandbox_stderr": "Traceback (most recent call last):\n  File \"/var/folders/s4/0zdx499s6sv3_0jll6ccdbh00000gn/T/pxtwork_vjjritak/_eval_script.py\", line 1, in <module>\n    {\"type\":\"result\",\"subtype\":\"success\",\"is_error\":true,\"api_error_status\":429,\"duration_ms\":244,\"duration_api_ms\":0,\"num_turns\":1,\"result\":\"You're out of extra usage \u00b7 resets 6:30pm (America/Los_Angeles)\",\"stop_reason\":\"stop_sequence\",\"session_id\":\"8af44cb6-f987-4378-8075-90d1c0f11e3c\",\"total_cost_usd\":0,\"usage\":{\"input_tokens\":0,\"cache_creation_inp"
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "skill_mcp",
+    "rep": 2,
+    "timestamp": "2026-05-11T22:46:12.597002+00:00",
+    "runner_elapsed_seconds": 2.9683354166336358,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [],
+    "pass": false,
+    "static_pass": false,
+    "functional_pass": false,
+    "idiomaticity": 0.0,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": false,
+      "uses document_splitter for chunking": false,
+      "creates embedding index": false,
+      "uses similarity search": false,
+      "calls an LLM for answering": false
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": false,
+      "skipped": true
+    },
+    "sandbox_exit_code": 1,
+    "sandbox_stderr": "Traceback (most recent call last):\n  File \"/var/folders/s4/0zdx499s6sv3_0jll6ccdbh00000gn/T/pxtwork_t69j30dy/_eval_script.py\", line 1, in <module>\n    {\"type\":\"result\",\"subtype\":\"success\",\"is_error\":true,\"api_error_status\":429,\"duration_ms\":244,\"duration_api_ms\":0,\"num_turns\":1,\"result\":\"You're out of extra usage \u00b7 resets 6:30pm (America/Los_Angeles)\",\"stop_reason\":\"stop_sequence\",\"session_id\":\"a855118a-fb9c-4bde-8225-9311dc7f1ec8\",\"total_cost_usd\":0,\"usage\":{\"input_tokens\":0,\"cache_creation_inp"
+  },
+  {
+    "story": "u1",
+    "runner": "claude_code",
+    "context_level": "skill_mcp",
+    "rep": 3,
+    "timestamp": "2026-05-11T22:46:16.285477+00:00",
+    "runner_elapsed_seconds": 2.4376167082227767,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 1,
+    "files_created": [],
+    "pass": false,
+    "static_pass": false,
+    "functional_pass": false,
+    "idiomaticity": 0.0,
+    "hallucination_count": 0,
+    "hallucinations_found": [],
+    "positive_hits": {
+      "uses pxt.Document type": false,
+      "uses document_splitter for chunking": false,
+      "creates embedding index": false,
+      "uses similarity search": false,
+      "calls an LLM for answering": false
+    },
+    "negative_hits": {
+      "imports LangChain": false,
+      "imports LlamaIndex": false,
+      "imports Haystack": false,
+      "imports ChromaDB": false,
+      "imports Pinecone": false,
+      "imports FAISS": false,
+      "imports Qdrant": false,
+      "uses pandas as working store": false,
+      "imperative loop calling AI model": false
+    },
+    "functional_details": {
+      "pass": false,
+      "skipped": true
+    },
+    "sandbox_exit_code": 1,
+    "sandbox_stderr": "Traceback (most recent call last):\n  File \"/var/folders/s4/0zdx499s6sv3_0jll6ccdbh00000gn/T/pxtwork_0z26sx44/_eval_script.py\", line 1, in <module>\n    {\"type\":\"result\",\"subtype\":\"success\",\"is_error\":true,\"api_error_status\":429,\"duration_ms\":242,\"duration_api_ms\":0,\"num_turns\":1,\"result\":\"You're out of extra usage \u00b7 resets 6:30pm (America/Los_Angeles)\",\"stop_reason\":\"stop_sequence\",\"session_id\":\"27c7b69a-5778-4043-a7bc-3ccc838ce4dc\",\"total_cost_usd\":0,\"usage\":{\"input_tokens\":0,\"cache_creation_inp"
+  }
+]

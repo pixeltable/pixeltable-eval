@@ -284,6 +284,18 @@ def test_static_only_negative_pattern_vetoes_pass():
     assert good.passed is True
 
 
+def test_spend_limit_classifies_as_infra():
+    """Runner quota/billing errors must not score as capability failures."""
+    from eval.stats import classify_infra_error
+
+    assert classify_infra_error(
+        "You've hit your individual spend limit · session limit resets 3pm"
+    )
+    # But an app's own auth failure is a capability failure, not infra.
+    assert not classify_infra_error("route returned 401 Unauthorized")
+    assert not classify_infra_error("authentication required")
+
+
 def test_eval_fixture_convention():
     """evals/<id>/fixtures/ resolves flat; curated u1 keeps docs/."""
     from eval.orchestrator import _fixture_dir_for
