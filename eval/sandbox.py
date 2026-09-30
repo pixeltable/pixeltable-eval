@@ -94,9 +94,17 @@ class PixeltableSandbox:
             # @pxt.udf at top level is rejected in __main__ but valid when the
             # file is imported as a module (how pxt schema update treats it).
             # Retry as a module so current-style app code is graded fairly.
+            # Apps that defer work to main() under an __name__ guard run
+            # nothing on bare import, so call main() when the import left no
+            # tables behind.
             if proc.returncode != 0 and "global namespace of a Python script" in proc.stderr:
+                retry = (
+                    f"import pixeltable as pxt, {script.stem} as m\n"
+                    f"if not pxt.list_tables() and hasattr(m, 'main'):\n"
+                    f"    m.main()"
+                )
                 proc = subprocess.run(
-                    [sys.executable, "-c", f"import {script.stem}"],
+                    [sys.executable, "-c", retry],
                     cwd=str(self.workdir),
                     env=env,
                     capture_output=True,

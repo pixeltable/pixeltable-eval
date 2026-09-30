@@ -208,6 +208,15 @@ def classify_infra_error(error: str | None) -> bool:
         "api_key not set",
         "no api key",
         "missing api key",
+        # Pixeltable/openai provider exec failures: a computed column that
+        # calls a provider dies inside the sandbox with these markers.
+        "missing_credentials",
+        "not initialized: parameter",
+        "authorizationerror",
+        "ratelimiterror",
+        "insufficient_quota",
+        "status_code: 429",
+        "exceeded your current quota",
         # Quota/billing: the runner could not run at all.
         "spend limit",
         "usage-credits",

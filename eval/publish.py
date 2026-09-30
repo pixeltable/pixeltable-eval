@@ -290,6 +290,8 @@ def publish(run: Path | None = None) -> list[Path]:
             or " ".join(
                 str(v) for v in (r.get("functional_details") or {}).values()
             )
+            + " "
+            + (r.get("sandbox_stderr") or "")
         )
     run_id = results_path.parent.name
     block = _summary_block(results, run_id)

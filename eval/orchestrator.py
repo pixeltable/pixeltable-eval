@@ -336,7 +336,10 @@ def _make_result(
         # inside functional details or stderr, never as runner errors.
         flake_src = str(verification.functional_details)
         if verification.sandbox_result:
-            flake_src += " " + verification.sandbox_result.stderr[:300]
+            # Scan the last 2k: pixeltable prints the wrapped exception
+            # (e.g. AuthorizationError for a missing provider key) roughly
+            # 1.5k chars from the end, after the udf-exec frame block.
+            flake_src += " " + verification.sandbox_result.stderr[-2000:]
         is_infra = classify_infra_error(flake_src)
     result["is_infra_error"] = is_infra
 
@@ -358,7 +361,10 @@ def _make_result(
         })
         if verification.sandbox_result:
             result["sandbox_exit_code"] = verification.sandbox_result.exit_code
-            result["sandbox_stderr"] = verification.sandbox_result.stderr[:500]
+            # Keep a wide tail: pixeltable prints the wrapped exception
+            # (the classifying marker) after the udf-exec frames, ~1.5k
+            # chars from the end of a multi-kb traceback.
+            result["sandbox_stderr"] = verification.sandbox_result.stderr[-2000:]
     else:
         result.update({"pass": False, "score": 0.0, "error": err or "unknown"})
 
