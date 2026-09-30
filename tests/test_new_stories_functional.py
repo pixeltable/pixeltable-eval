@@ -100,3 +100,39 @@ def test_u5_functional_check_passes_hermetic_app():
         check = U5IncrementalVerifier().functional_check(sandbox)
     assert check.get("pass") is True, f"functional check rejected the app: {check}"
     assert check.get("row_count") == 5
+
+
+# Same app but reading_time declared with the initial schema: the final
+# state is identical (5 rows, all populated), so only the version_added
+# ordering can reject it. This is the falsifier for the backfill check.
+U5_CHEAT_APP = U5_HERMETIC_APP.replace(
+    """articles.add_computed_column(keywords=keywords(articles.body), if_exists='ignore')
+
+articles.insert([""",
+    """articles.add_computed_column(keywords=keywords(articles.body), if_exists='ignore')
+articles.add_computed_column(
+    reading_time_minutes=articles.word_count / 200.0,
+    if_exists='ignore',
+)
+
+articles.insert([""",
+).replace(
+    """articles.add_computed_column(
+    reading_time_minutes=articles.word_count / 200.0,
+    if_exists='ignore',
+)
+
+negative =""",
+    """negative =""",
+)
+
+
+@pytest.mark.slow
+def test_u5_functional_check_rejects_upfront_column():
+    with PixeltableSandbox(timeout=600) as sandbox:
+        run = sandbox.exec_code(U5_CHEAT_APP)
+        assert run.success, f"cheat app failed to execute:\n{run.stderr}"
+        check = U5IncrementalVerifier().functional_check(sandbox)
+    assert check.get("pass") is False
+    reason = check.get("reason") or ""
+    assert "initial schema" in reason or "before any .insert" in reason
