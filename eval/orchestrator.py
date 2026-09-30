@@ -207,6 +207,7 @@ def run_single_cell(
                 story_id, runner_name, context, rep, runner_result,
                 verification=None, error=runner_result.error,
                 judge_model=getattr(judge, "model", None),
+                runner_model=runner.model,
             )
 
         code = runner_result.extracted_code
@@ -259,6 +260,7 @@ def run_single_cell(
         return _make_result(
             story_id, runner_name, context, rep, runner_result, verification,
             judge_model=getattr(judge, "model", None),
+            runner_model=runner.model,
         )
 
     finally:
@@ -309,10 +311,12 @@ def _make_result(
     verification: VerificationResult | None,
     error: str | None = None,
     judge_model: str | None = None,
+    runner_model: str | None = None,
 ) -> dict:
     result = {
         "story": story_id,
         "runner": runner_name,
+        "runner_model": runner_model,
         "context_level": context.value,
         "rep": rep,
         "timestamp": datetime.now(timezone.utc).isoformat(),

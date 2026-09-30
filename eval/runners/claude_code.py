@@ -22,10 +22,11 @@ from eval.runners.base import BaseRunner, RunnerResult, collect_created_files
 
 class ClaudeCodeRunner(BaseRunner):
 
-    def __init__(self, model: str | None = None, max_turns: int = 25):
-        # Default None: let the CLI pick its current model. A dated pin rots
-        # silently (deprecated models hard-fail), while --model still lets a
-        # cohort pin a specific one for attribution.
+    def __init__(self, model: str | None = "sonnet", max_turns: int = 25):
+        # Default "sonnet": an alias the CLI resolves to its latest sonnet,
+        # so the cohort moves with releases instead of hard-failing like a
+        # dated pin did. Pass --model for a specific dated id or another
+        # family; None defers to the CLI default.
         self.model = model
         self.max_turns = max_turns
 
