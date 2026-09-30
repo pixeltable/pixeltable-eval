@@ -156,8 +156,10 @@ def cmd_publish(args):
         run = p if p.name == "results.json" else p / "results.json"
         if not run.exists():
             run = Path("results") / args.run / "results.json"
-    out = publish(run)
-    print(f"Wrote {out}; commit it plus the run's results.json.")
+    written = publish(run)
+    for p in written:
+        print(f"wrote {p}")
+    print("Commit those plus the run's results.json.")
 
 
 def cmd_interactive(args):
