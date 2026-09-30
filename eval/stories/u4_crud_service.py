@@ -121,29 +121,45 @@ def fill_inputs(route, row):
     return body or dict(SEED)
 
 
-def find_row(obj):
-    """Recursively find the first dict that carries a sku-like field."""
+def find_insert_row(obj):
+    """Insert outputs vary by app (id/sku/slug subsets); accept the first
+    dict that carries the seeded sku or the computed slug."""
     if isinstance(obj, dict):
-        if any("sku" in str(k).lower() for k in obj):
+        vals = {str(k).lower(): v for k, v in obj.items()}
+        if vals.get("sku") == SEED["sku"] or vals.get("slug") == "test-widget":
             return obj
         for v in obj.values():
-            found = find_row(v)
+            found = find_insert_row(v)
             if found:
                 return found
     elif isinstance(obj, list):
         for v in obj:
-            found = find_row(v)
+            found = find_insert_row(v)
             if found:
                 return found
     return None
 
 
-def sku_of(row):
-    """Value of a row's sku-ish field, or None."""
-    if isinstance(row, dict):
-        for k, v in row.items():
-            if "sku" in str(k).lower():
-                return v
+def row_matches(obj):
+    """Recursively find the first dict that carries the inserted row's
+    declared outputs. The prompt requires the query route to return the
+    matching row's name, price, and slug (not sku), so identity is proven
+    by the seeded values, not the key."""
+    if isinstance(obj, dict):
+        vals = {str(k).lower(): v for k, v in obj.items()}
+        if vals.get("name") == SEED["name"] and vals.get("slug") == "test-widget":
+            return obj
+        if vals.get("name") == SEED["name"] and vals.get("price") == SEED["price"]:
+            return obj
+        for v in obj.values():
+            found = row_matches(v)
+            if found:
+                return found
+    elif isinstance(obj, list):
+        for v in obj:
+            found = row_matches(v)
+            if found:
+                return found
     return None
 
 
@@ -197,7 +213,7 @@ try:
             out["insert_body"] = (text or err or "")[:300]
             if text:
                 try:
-                    row = find_row(json.loads(text))
+                    row = find_insert_row(json.loads(text))
                 except json.JSONDecodeError:
                     row = None
         row = row or dict(SEED)
@@ -218,12 +234,10 @@ try:
             out["query_body"] = (text or err or "")[:300]
             if text and status == 200:
                 try:
-                    fresher = find_row(json.loads(text))
+                    fresher = row_matches(json.loads(text))
                 except Exception:
                     fresher = None
-                out["query_sku_ok"] = (
-                    fresher is not None and sku_of(fresher) == SEED["sku"]
-                )
+                out["query_sku_ok"] = fresher is not None
                 if fresher:
                     row.update(fresher)
             else:
@@ -260,10 +274,10 @@ try:
                     gone = True
                     if s2 and 200 <= s2 < 300 and t2:
                         try:
-                            leftover = find_row(json.loads(t2))
+                            leftover = row_matches(json.loads(t2))
                         except Exception:
                             leftover = None
-                        if leftover is not None and sku_of(leftover) == SEED["sku"]:
+                        if leftover is not None:
                             gone = False
                     out["delete_verified"] = gone
                 else:
@@ -328,7 +342,7 @@ print(json.dumps(out))
         if data.get("query_sku_ok") is not True:
             return {
                 "pass": False,
-                "reason": "query route response does not contain the inserted sku",
+                "reason": "query route response does not return the inserted row",
                 "query_body": data.get("query_body"),
             }
         if not data.get("delete_route"):

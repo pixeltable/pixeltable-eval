@@ -67,16 +67,6 @@ class PixeltableSandbox:
             except OSError:
                 pass
 
-        # Provider api keys live in ~/.pixeltable/config.toml; symlink it into
-        # the sandbox home so generated code can call OpenAI etc. Symlink
-        # rather than copy so secrets are not duplicated on disk.
-        user_cfg = Path.home() / ".pixeltable" / "config.toml"
-        if user_cfg.exists():
-            try:
-                (self.home / "config.toml").symlink_to(user_cfg)
-            except OSError:
-                pass
-
     def exec_code(self, code: str) -> SandboxResult:
         """Execute a Python code string in an isolated subprocess."""
         script = self.workdir / "_eval_script.py"
@@ -104,9 +94,17 @@ class PixeltableSandbox:
             # @pxt.udf at top level is rejected in __main__ but valid when the
             # file is imported as a module (how pxt schema update treats it).
             # Retry as a module so current-style app code is graded fairly.
+            # Apps that defer work to main() under an __name__ guard run
+            # nothing on bare import, so call main() when the import left no
+            # tables behind.
             if proc.returncode != 0 and "global namespace of a Python script" in proc.stderr:
+                retry = (
+                    f"import pixeltable as pxt, {script.stem} as m\n"
+                    f"if not pxt.list_tables() and hasattr(m, 'main'):\n"
+                    f"    m.main()"
+                )
                 proc = subprocess.run(
-                    [sys.executable, "-c", f"import {script.stem}"],
+                    [sys.executable, "-c", retry],
                     cwd=str(self.workdir),
                     env=env,
                     capture_output=True,
@@ -189,6 +187,28 @@ class PixeltableSandbox:
         return []
 
     def cleanup(self):
+        # pixeltable_pgserver daemonizes postgres; when the eval subprocess
+        # exits without atexit (SIGKILL on timeout, hard crash) the daemon
+        # is orphaned and holds SysV shm segments. macOS's SHMMNI limit is
+        # small enough that a few orphans break later initdb calls
+        # ("could not create shared memory segment"). Fast-shutdown any pg
+        # whose data dir is this sandbox home before removing the dirs.
+        subprocess.run(
+            ["pkill", "-INT", "-f", str(self.home)],
+            capture_output=True,
+            check=False,
+        )
+        import time
+
+        for _ in range(30):
+            gone = subprocess.run(
+                ["pgrep", "-f", str(self.home)],
+                capture_output=True,
+                check=False,
+            ).returncode != 0
+            if gone:
+                break
+            time.sleep(0.1)
         shutil.rmtree(self.home, ignore_errors=True)
         shutil.rmtree(self.workdir, ignore_errors=True)
 

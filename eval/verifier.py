@@ -281,7 +281,7 @@ class StoryVerifier(ABC):
                     "pass": False,
                     "exec_failed": True,
                     "exit_code": sandbox_result.exit_code,
-                    "stderr_snippet": sandbox_result.stderr[:300],
+                    "stderr_snippet": sandbox_result.stderr[-300:],
                 }
                 functional_score = 0.0
 
