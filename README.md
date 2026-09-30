@@ -192,26 +192,25 @@ alternatives, not content.
 
 <!-- eval-results:start -->
 
-**Run:** `matrix_20260929_134627` | pixeltable=0.7.8, fastapi=0.141.1, openai=3.16.2, python=3.12.14
+**Run:** `matrix_20260929_201635` | pixeltable=0.7.8, fastapi=0.141.1, openai=3.16.2, python=3.12.14
 
-- **Skill lift:** cold 100% -> skill 50% pass rate (n=1/4).
-- **Functional lift:** cold 100% -> skill 50% on executed cells (n=1/4).
-- **Looks-right-but-broken:** 1 cell(s) passed static checks yet failed execution -- what a good skill should reduce.
-- **Spend:** $6.07 total, median 9 turns.
-- 19 trial(s) excluded as infrastructure errors.
+- **Skill lift:** cold 30% -> skill 40% pass rate (n=20/20).
+- **Functional lift:** cold 14% -> skill 31% on executed cells (n=14/16).
+- **Looks-right-but-broken:** 22 cell(s) passed static checks yet failed execution -- what a good skill should reduce.
+- **Spend:** $19.30 total, median 17 turns.
 
 ![pass rates](results/chart.svg)
 
 | Story | Context | n | Pass | Func ran | Mean score |
 |---|---|---|---|---|---|
-| u1 | cold | 3 | all infra | - | - |
-| u1 | skill | 3 | all infra | - | - |
-| u3 | cold | 1 (+2 infra) | 100% [21-100%] | 1/1 | 4.3 |
-| u3 | skill | 1 (+2 infra) | 100% [21-100%] | 1/1 | 5.0 |
-| u4 | cold | 3 | all infra | - | - |
-| u4 | skill | 1 (+2 infra) | 0% [0-79%] | 1/1 | 3.8 |
-| u5 | cold | 3 | all infra | - | - |
-| u5 | skill | 2 (+1 infra) | 50% [9-91%] | 2/2 | 3.8 |
+| u1 | cold | 5 | 60% [23-88%] | 3/5 | 3.9 |
+| u1 | skill | 5 | 20% [4-62%] | 4/5 | 3.0 |
+| u3 | cold | 5 | 60% [23-88%] | 1/5 | 4.7 |
+| u3 | skill | 5 | 100% [57-100%] | 2/5 | 4.9 |
+| u4 | cold | 5 | 0% [0-43%] | 5/5 | 3.8 |
+| u4 | skill | 5 | 0% [0-43%] | 5/5 | 3.8 |
+| u5 | cold | 5 | 0% [0-43%] | 5/5 | 3.5 |
+| u5 | skill | 5 | 40% [12-77%] | 5/5 | 3.8 |
 
 <!-- eval-results:end -->
 
