@@ -25,7 +25,7 @@ const { Agent } = require("@cursor/sdk");
 async function main() {
   const prompt = process.argv[2];
   const workdir = process.argv[3];
-  const model = process.argv[4] || "claude-sonnet-4-20250514";
+  const model = process.argv[4] || "sonnet";
 
   const agent = await Agent.create({
     prompt,
@@ -58,7 +58,7 @@ main().catch((err) => {
 
 class CursorSdkRunner(BaseRunner):
 
-    def __init__(self, model: str = "claude-sonnet-4-20250514"):
+    def __init__(self, model: str = "sonnet"):
         self.model = model
 
     @property
