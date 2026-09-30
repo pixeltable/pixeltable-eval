@@ -71,7 +71,6 @@ def _pass_stats(rows: list[dict]) -> tuple[int, int, int]:
 def _insights(results: list[dict]) -> list[str]:
     """Auto-computed takeaways: the lines a reader should not have to derive."""
     out: list[str] = []
-    groups = _groups(results)
     valid = [r for r in results if not r.get("is_infra_error")]
     if not valid:
         return ["No capability-measured trials (all infra errors)."]
