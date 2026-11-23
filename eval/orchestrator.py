@@ -207,6 +207,7 @@ def run_single_cell(
                 story_id, runner_name, context, rep, runner_result,
                 verification=None, error=runner_result.error,
                 judge_model=getattr(judge, "model", None),
+                runner_model=runner.model,
             )
 
         code = runner_result.extracted_code
@@ -259,6 +260,7 @@ def run_single_cell(
         return _make_result(
             story_id, runner_name, context, rep, runner_result, verification,
             judge_model=getattr(judge, "model", None),
+            runner_model=runner.model,
         )
 
     finally:
@@ -309,10 +311,12 @@ def _make_result(
     verification: VerificationResult | None,
     error: str | None = None,
     judge_model: str | None = None,
+    runner_model: str | None = None,
 ) -> dict:
     result = {
         "story": story_id,
         "runner": runner_name,
+        "runner_model": runner_model,
         "context_level": context.value,
         "rep": rep,
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -332,7 +336,10 @@ def _make_result(
         # inside functional details or stderr, never as runner errors.
         flake_src = str(verification.functional_details)
         if verification.sandbox_result:
-            flake_src += " " + verification.sandbox_result.stderr[:300]
+            # Scan the last 2k: pixeltable prints the wrapped exception
+            # (e.g. AuthorizationError for a missing provider key) roughly
+            # 1.5k chars from the end, after the udf-exec frame block.
+            flake_src += " " + verification.sandbox_result.stderr[-2000:]
         is_infra = classify_infra_error(flake_src)
     result["is_infra_error"] = is_infra
 
@@ -354,7 +361,10 @@ def _make_result(
         })
         if verification.sandbox_result:
             result["sandbox_exit_code"] = verification.sandbox_result.exit_code
-            result["sandbox_stderr"] = verification.sandbox_result.stderr[:500]
+            # Keep a wide tail: pixeltable prints the wrapped exception
+            # (the classifying marker) after the udf-exec frames, ~1.5k
+            # chars from the end of a multi-kb traceback.
+            result["sandbox_stderr"] = verification.sandbox_result.stderr[-2000:]
     else:
         result.update({"pass": False, "score": 0.0, "error": err or "unknown"})
 

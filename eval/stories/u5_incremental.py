@@ -74,8 +74,16 @@ class U5IncrementalVerifier(StoryVerifier):
         ]
 
     def functional_check(self, sandbox: PixeltableSandbox) -> dict:
+        # exec_verification overwrites _eval_script.py, so preserve the
+        # generated app for source-ordering evidence (same as u3/u4).
+        script = sandbox.workdir / "_eval_script.py"
+        if not script.exists():
+            return {"pass": False, "reason": "no generated file to inspect"}
+        (sandbox.workdir / "_generated_app.py").write_text(script.read_text())
+
         check_code = '''\
 import json
+from pathlib import Path
 
 import pixeltable as pxt
 
@@ -90,10 +98,18 @@ try:
         cols = meta["columns"]
         names = {n.lower(): n for n in cols}
 
+        # "sentiment" contains the substring "time"; resolve it and the
+        # other named columns first so rt cannot claim one of them.
         wc = next((n for k, n in names.items() if "word" in k or "count" in k), None)
-        rt = next((n for k, n in names.items() if "reading" in k or "time" in k), None)
         sent = next((n for k, n in names.items() if "sentiment" in k), None)
         kw = next((n for k, n in names.items() if "keyword" in k), None)
+        rt = next((n for k, n in names.items() if "reading" in k), None)
+        if not rt:
+            rt = next(
+                (n for k, n in names.items()
+                 if "time" in k and n not in (wc, sent, kw)),
+                None,
+            )
 
         # Backfill proof comes from schema history, not final values: the
         # late column must carry a version_added newer than the initial
@@ -102,6 +118,16 @@ try:
             (m.get("version_added") or 0) for m in cols.values()
         )
         rt_meta = cols.get(rt) or {}
+
+        # Ordering proof: schema versions only record post-creation adds,
+        # not post-insert adds. The source must place the late column's
+        # first mention after the first .insert( call.
+        try:
+            src = Path("_generated_app.py").read_text()
+        except OSError:
+            src = ""
+        first_insert = src.find(".insert(")
+        rt_decl = src.find(rt) if rt else -1
 
         out = {
             "table": arts[0],
@@ -113,6 +139,8 @@ try:
             "rt_computed": bool(rt_meta.get("is_computed")),
             "rt_version_added": rt_meta.get("version_added"),
             "initial_version": initial_version,
+            "late_after_insert": bool(rt and 0 <= first_insert < rt_decl),
+            "insert_calls": src.count(".insert("),
             "sentiment_col": sent,
             "keywords_col": kw,
         }
@@ -168,6 +196,15 @@ except Exception as e:
                     f"reading_time was part of the initial schema "
                     f"(version_added={rt_version}); the story requires "
                     f"adding it after data exists"
+                ),
+            }
+        if not data.get("late_after_insert"):
+            return {
+                "pass": False,
+                "reason": (
+                    "reading_time is declared before any .insert( in the "
+                    "generated source; the story requires adding it after "
+                    "data exists"
                 ),
             }
         if data.get("wc_nulls", 1) > 0:
